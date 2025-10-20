@@ -1,0 +1,17 @@
+# Copy this to .env file
+# Then add your actual API keys
+
+# Anthropic API for Claude
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+LLM_BEST_CODING_MODEL=claude-3-5-sonnet-20241022
+
+# Gemini API for Vision Language Model (VLM) validation
+# Get your API key from https://makersuite.google.com/app/apikey
+GEMINI_API_KEY=your-gemini-api-key-here
+LLM_VISION_MODEL=gemini-1.5-flash
+
+# LangSmith for observability and tracing
+# Get your API key from https://smith.langchain.com/
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your-langsmith-api-key-here
+LANGCHAIN_PROJECT=playable-agent

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Tic Tac Toe vs AI - PixiJS Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/pixi.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+        
+        #gameContainer {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        #status {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        #restartBtn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a6f);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        #restartBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Tic Tac Toe vs AI</h1>
+    <div id="gameContainer"></div>
+    <div id="status">Your turn! Click a cell to play X</div>
+    <button id="restartBtn" onclick="restartGame()">🔄 New Game</button>
+
+    <script>
+        // Game constants
+        const BOARD_SIZE = 3;
+        const CELL_SIZE = 120;
+        const PADDING = 10;
+        const CANVAS_SIZE = BOARD_SIZE * CELL_SIZE + (BOARD_SIZE + 1) * PADDING;
+        
+        // Game state
+        let gameBoard = Array(9).fill(null); // null, 'X', 'O'
+        let gameOver = false;
+        let playerTurn = true;
+        
+        // PIXI setup
+        const app = new PIXI.Application();
+        
+        async function initializeGame() {
+            await app.init({
+                width: CANVAS_SIZE,
+                height: CANVAS_SIZE,
+                backgroundColor: 0xf8f9fa,
+                antialias: true
+            });
+            
+            document.getElementById('gameContainer').appendChild(app.canvas);
+            
+            // Create game board
+            createBoard();
+            
+            // Add click interaction
+            app.stage.eventMode = 'static';
+            app.stage.on('pointerdown', onBoardClick);
+        }
+        
+        function createBoard() {
+            // Clear existing board
+            app.stage.removeChildren();
+            
+            // Create board background
+            const boardBg = new PIXI.Graphics();
+            boardBg.rect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            boardBg.fill(0x2c3e50);
+            app.stage.addChild(boardBg);
+            
+            // Create grid cells
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    const cellIndex = i * BOARD_SIZE + j;
+                    const x = j * (CELL_SIZE + PADDING) + PADDING;
+                    const y = i * (CELL_SIZE + PADDING) + PADDING;
+                    
+                    // Cell background
+                    const cell = new PIXI.Graphics();
+                    cell.rect(x, y, CELL_SIZE, CELL_SIZE);
+                    cell.fill(0xecf0f1);
+                    cell.stroke({ width: 2, color: 0xbdc3c7 });
+                    
+                    // Add hover effect
+                    cell.eventMode = 'static';
+                    cell.cursor = 'pointer';
+                    cell.on('pointerover', () => {
+                        if (!gameBoard[cellIndex] && !gameOver && playerTurn) {
+                            cell.clear();
+                            cell.rect(x, y, CELL_SIZE, CELL_SIZE);
+                            cell.fill(0xd5dbdb);
+                            cell.stroke({ width: 2, color: 0x3498db });
+                        }
+                    });
+                    cell.on('pointerout', () => {
+                        if (!gameBoard[cellIndex] && !gameOver) {
+                            cell.clear();
+                            cell.rect(x, y, CELL_SIZE, CELL_SIZE);
+                            cell.fill(0xecf0f1);
+                            cell.stroke({ width: 2, color: 0xbdc3c7 });
+                        }
+                    });
+                    
+                    app.stage.addChild(cell);
+                    
+                    // Draw existing pieces
+                    if (gameBoard[cellIndex]) {
+                        drawPiece(x + CELL_SIZE/2, y + CELL_SIZE/2, gameBoard[cellIndex]);
+                    }
+                }
+            }
+        }
+        
+        function drawPiece(x, y, type) {
+            const piece = new PIXI.Graphics();
+            
+            if (type === 'X') {
+                // Draw X with rounded lines
+                piece.moveTo(x - 35, y - 35);
+                piece.lineTo(x + 35, y + 35);
+                piece.moveTo(x + 35, y - 35);
+                piece.lineTo(x - 35, y + 35);
+                piece.stroke({ width: 8, color: 0xe74c3c, cap: 'round' });
+            } else if (type === 'O') {
+                // Draw O
+                piece.circle(x, y, 35);
+                piece.stroke({ width: 8, color: 0x3498db });
+            }
+            
+            app.stage.addChild(piece);
+        }
+        
+        function onBoardClick(event) {
+            if (gameOver || !playerTurn) return;
+            
+            const rect = app.canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            const col = Math.floor((x - PADDING) / (CELL_SIZE + PADDING));
+            const row = Math.floor((y - PADDING) / (CELL_SIZE + PADDING));
+            
+            if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
+                const cellIndex = row * BOARD_SIZE + col;
+                
+                if (!gameBoard[cellIndex]) {
+                    // Player move
+                    gameBoard[cellIndex] = 'X';
+                    playerTurn = false;
+                    
+                    updateBoard();
+                    
+                    if (checkWinner()) {
+                        endGame(checkWinner());
+                    } else if (isBoardFull()) {
+                        endGame('tie');
+                    } else {
+                        updateStatus("AI is thinking...");
+                        // AI move after a short delay
+                        setTimeout(makeAIMove, 500);
+                    }
+                }
+            }
+        }
+        
+        function makeAIMove() {
+            if (gameOver) return;
+            
+            // Simple AI strategy: try to win, block player, or take center/corners
+            let aiMove = getBestAIMove();
+            
+            if (aiMove !== -1) {
+                gameBoard[aiMove] = 'O';
+                playerTurn = true;
+                
+                updateBoard();
+                
+                if (checkWinner()) {
+                    endGame(checkWinner());
+                } else if (isBoardFull()) {
+                    endGame('tie');
+                } else {
+                    updateStatus("Your turn! Click a cell to play X");
+                }
+            }
+        }
+        
+        function getBestAIMove() {
+            // 1. Try to win
+            for (let i = 0; i < 9; i++) {
+                if (!gameBoard[i]) {
+                    gameBoard[i] = 'O';
+                    if (checkWinner() === 'O') {
+                        gameBoard[i] = null;
+                        return i;
+                    }
+                    gameBoard[i] = null;
+                }
+            }
+            
+            // 2. Block player from winning
+            for (let i = 0; i < 9; i++) {
+                if (!gameBoard[i]) {
+                    gameBoard[i] = 'X';
+                    if (checkWinner() === 'X') {
+                        gameBoard[i] = null;
+                        return i;
+                    }
+                    gameBoard[i] = null;
+                }
+            }
+            
+            // 3. Take center if available
+            if (!gameBoard[4]) {
+                return 4;
+            }
+            
+            // 4. Take corners
+            const corners = [0, 2, 6, 8];
+            for (let corner of corners) {
+                if (!gameBoard[corner]) {
+                    return corner;
+                }
+            }
+            
+            // 5. Take any available space
+            for (let i = 0; i < 9; i++) {
+                if (!gameBoard[i]) {
+                    return i;
+                }
+            }
+            
+            return -1;
+        }
+        
+        function checkWinner() {
+            const lines = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                [0, 4, 8], [2, 4, 6] // diagonals
+            ];
+            
+            for (let line of lines) {
+                const [a, b, c] = line;
+                if (gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]) {
+                    return gameBoard[a];
+                }
+            }
+            
+            return null;
+        }
+        
+        function isBoardFull() {
+            return gameBoard.every(cell => cell !== null);
+        }
+        
+        function updateBoard() {
+            createBoard();
+        }
+        
+        function endGame(winner) {
+            gameOver = true;
+            playerTurn = false;
+            
+            if (winner === 'X') {
+                updateStatus("🎉 You win! Congratulations!");
+            } else if (winner === 'O') {
+                updateStatus("🤖 AI wins! Better luck next time!");
+            } else {
+                updateStatus("🤝 It's a tie! Good game!");
+            }
+        }
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        
+        function restartGame() {
+            gameBoard = Array(9).fill(null);
+            gameOver = false;
+            playerTurn = true;
+            updateBoard();
+            updateStatus("Your turn! Click a cell to play X");
+        }
+        
+        // Initialize the game when the page loads
+        window.addEventListener('load', initializeGame);
+    </script>
+</body>
+</html>
