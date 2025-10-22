@@ -1,8 +1,6 @@
-from os import name
 from typing import Self
 import dagger
 from dagger import function, object_type, Container, Directory, ReturnType
-from log import get_logger
 import hashlib
 from dagger_utils import ExecResult
 import uuid
@@ -10,7 +8,7 @@ import logging
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter, retry_if_exception_type, before_sleep_log
 from dagger_utils import write_files_bulk as _write_files_bulk
 
-logger = get_logger(name)
+logger = logging.getLogger(__name__)
 
 retry_transport_errors = retry(
     stop=stop_after_attempt(3),

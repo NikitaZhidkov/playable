@@ -78,6 +78,8 @@ async function testGame() {
         consoleLogs.push(errorMsg);
     });
     
+    let screenshotCaptured = false;
+    
     try {
         // Load the game
         const indexPath = path.resolve('/app/index.html');
@@ -92,15 +94,23 @@ async function testGame() {
         const title = await page.title();
         console.log(`Page loaded: ${title}`);
         
-        // Capture screenshot
-        const screenshotPath = '/app/screenshot.png';
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        console.log(`Screenshot saved to ${screenshotPath}`);
-        
     } catch (error) {
         const errorMsg = `Failed to load page: ${error.message}`;
         errors.push(errorMsg);
         consoleLogs.push(errorMsg);
+    }
+    
+    // Always try to capture screenshot, even if page load failed
+    try {
+        const screenshotPath = '/app/screenshot.png';
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        screenshotCaptured = true;
+        console.log(`Screenshot saved to ${screenshotPath}`);
+    } catch (screenshotError) {
+        const errorMsg = `Failed to capture screenshot: ${screenshotError.message}`;
+        errors.push(errorMsg);
+        consoleLogs.push(errorMsg);
+        console.error(errorMsg);
     } finally {
         await browser.close();
     }
@@ -217,16 +227,34 @@ async def validate_game_in_workspace(workspace: Workspace) -> GameTestResult:
         # Extract screenshot from container
         screenshot_bytes = None
         try:
-            # Dagger .contents() returns bytes directly for binary files
-            screenshot_data = await executed_container.file("/app/screenshot.png").contents()
-            # Ensure we have bytes, not string
-            if isinstance(screenshot_data, str):
-                screenshot_bytes = screenshot_data.encode('latin-1')  # Preserve binary data
-            else:
-                screenshot_bytes = screenshot_data
-            logger.info(f"Screenshot extracted: {len(screenshot_bytes)} bytes")
+            # First, check if screenshot file exists by listing directory
+            try:
+                dir_listing = await executed_container.directory("/app").entries()
+                logger.info(f"Files in /app: {dir_listing}")
+            except Exception as list_error:
+                logger.warning(f"Could not list /app directory: {list_error}")
+            
+            # For binary files, export to temp location then read as bytes
+            # This avoids issues with Dagger trying to decode binary data as text
+            import tempfile
+            from pathlib import Path as PathLib
+            
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp_screenshot = PathLib(tmpdir) / "screenshot.png"
+                
+                # Export screenshot from container to temp file
+                await executed_container.file("/app/screenshot.png").export(str(tmp_screenshot))
+                
+                # Read the exported file as bytes
+                screenshot_bytes = tmp_screenshot.read_bytes()
+                
+            logger.info(f"Screenshot extracted successfully: {len(screenshot_bytes)} bytes")
+            
         except Exception as e:
-            logger.warning(f"Could not extract screenshot: {e}")
+            logger.error(f"Failed to extract screenshot from container: {e}")
+            logger.error(f"Screenshot may not have been created in the container")
+            # Log the stdout/stderr for debugging
+            logger.error(f"Container output: {output[:500]}...")
         
         # Create GameTestResult with all data
         result = GameTestResult(

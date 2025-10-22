@@ -15,4 +15,6 @@ class AgentState(MessagesState):
     _parsed_content: list[Any]  # Temporary storage for parsed LLM response
     test_failures: list[str]  # Browser test error messages
     retry_count: int  # Number of test retry attempts
+    session_id: str  # Unique session identifier
+    is_feedback_mode: bool  # Whether we're in feedback mode or creation mode
 

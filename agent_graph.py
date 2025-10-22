@@ -6,8 +6,15 @@ from llm_client import LLMClient, VLMClient
 from tools import FileOperations
 from custom_types import ToolUse, TextRaw
 from test_game import validate_game_in_workspace
-from utils import validate_playable_with_vlm
-from playbook import PLAYABLE_VALIDATION_PROMPT
+from vlm_utils import validate_playable_with_vlm
+from playbook import (
+    VLM_PLAYABLE_VALIDATION_PROMPT,
+    FEEDBACK_CONTINUE_TASK,
+    FEEDBACK_VALIDATION_FAILED,
+    SYSTEM_PIXI_GAME_DEVELOPER_PROMPT,
+    SYSTEM_PIXI_FEEDBACK_PROMPT,
+    PIXI_CDN_INSTRUCTIONS
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,13 +30,23 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
         """Call the LLM with current state."""
         logger.info("=== LLM Node ===")
         
+        # Determine which system prompt to use
+        is_feedback = state.get("is_feedback_mode", False)
+        if is_feedback:
+            logger.info("Using FEEDBACK mode system prompt")
+            system_prompt = SYSTEM_PIXI_FEEDBACK_PROMPT + "\n\n" + PIXI_CDN_INSTRUCTIONS
+        else:
+            logger.info("Using CREATION mode system prompt")
+            system_prompt = SYSTEM_PIXI_GAME_DEVELOPER_PROMPT + "\n\n" + PIXI_CDN_INSTRUCTIONS
+        
         # Get tools from file operations
         tools = file_ops.tools
         
-        # Call LLM
+        # Call LLM with appropriate system prompt
         response = llm_client.call(
             messages=state["messages"],
-            tools=tools
+            tools=tools,
+            system=system_prompt
         )
         
         # Parse response
@@ -120,92 +137,60 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             # User skipped, tell LLM to continue without user input
             logger.info("User skipped input, asking LLM to continue")
             return {
-                "messages": [HumanMessage(content="Please continue with the task.")]
+                "messages": [HumanMessage(content=FEEDBACK_CONTINUE_TASK)]
             }
     
     async def test_node(state: AgentState) -> dict:
         """Test the generated game in a browser and validate with VLM."""
         logger.info("=== Test Node ===")
         
-        try:
-            # Initialize VLM client
-            vlm_client = VLMClient()
+        # Initialize VLM client
+        vlm_client = VLMClient()
 
-            # Run browser tests to get screenshot and console logs
-            logger.info("Running browser tests on generated game...")
-            test_result = await validate_game_in_workspace(state["workspace"])
-            
-            # Check if we have a screenshot for VLM validation
-            if not test_result.screenshot_bytes:
-                logger.warning("No screenshot available for VLM validation")
-                current_retry = state.get("retry_count", 0) + 1
-                
-                feedback_message = HumanMessage(
-                    content=f"Browser test failed to capture screenshot. Please ensure the game generates a valid index.html file. This is attempt {current_retry} of 5."
-                )
-                
-                return {
-                    "messages": [feedback_message],
-                    "test_failures": ["No screenshot captured"],
-                    "retry_count": current_retry,
-                    "is_completed": False,
-                }
-            
-            # Validate with VLM
-            logger.info("Validating playable with VLM...")
-            is_valid, reason = validate_playable_with_vlm(
-                vlm_client=vlm_client,
-                screenshot_bytes=test_result.screenshot_bytes,
-                console_logs=test_result.console_logs,
-                user_prompt=state.get("task_description", ""),
-                template_str=PLAYABLE_VALIDATION_PROMPT
-            )
-            
-            if is_valid:
-                logger.info("✅ VLM validation passed! Game is correct.")
-                return {
-                    "test_failures": [],
-                }
-            else:
-                logger.warning(f"❌ VLM validation failed: {reason}")
-                # Increment retry count
-                current_retry = state.get("retry_count", 0) + 1
-                logger.info(f"Retry attempt {current_retry}/5")
-                
-                # Format console logs for feedback
-                if test_result.console_logs:
-                    console_logs_formatted = "\n".join(test_result.console_logs)
-                else:
-                    console_logs_formatted = "No console logs captured."
-                
-                # Create feedback message for LLM as specified in the plan
-                feedback_message = HumanMessage(
-                    content=f"Playwright validation failed with the reason: {reason}, "
-                           f"console_logs: {console_logs_formatted}\n\n"
-                           f"Please fix these issues. This is attempt {current_retry} of 5."
-                )
-                
-                return {
-                    "messages": [feedback_message],
-                    "test_failures": [reason],
-                    "retry_count": current_retry,
-                    "is_completed": False,  # Reset completion flag to retry
-                }
-        except Exception as e:
-            error_msg = f"Test execution failed: {str(e)}"
-            logger.error(error_msg, exc_info=True)
+        # Run browser tests to get screenshot and console logs
+        logger.info("Running browser tests on generated game...")
+        test_result = await validate_game_in_workspace(state["workspace"])
+        
+        # Validate with VLM
+        logger.info("Validating playable with VLM...")
+        is_valid, reason = validate_playable_with_vlm(
+            vlm_client=vlm_client,
+            screenshot_bytes=test_result.screenshot_bytes,
+            console_logs=test_result.console_logs,
+            user_prompt=state.get("task_description", ""),
+            template_str=VLM_PLAYABLE_VALIDATION_PROMPT
+        )
+        
+        if is_valid:
+            logger.info("✅ VLM validation passed! Game is correct.")
+            return {
+                "test_failures": [],
+            }
+        else:
+            logger.warning(f"❌ VLM validation failed: {reason}")
+            # Increment retry count
             current_retry = state.get("retry_count", 0) + 1
+            logger.info(f"Retry attempt {current_retry}/5")
             
+            # Format console logs for feedback
+            if test_result.console_logs:
+                console_logs_formatted = "  " + "\n  ".join(test_result.console_logs)
+            else:
+                console_logs_formatted = "  No console logs captured."
+            
+            # Create feedback message for LLM with VLM reason and console logs
             feedback_message = HumanMessage(
-                content=f"Browser test execution failed:\n\n- {error_msg}\n\n"
-                       f"Please ensure the game generates a valid index.html file. This is attempt {current_retry} of 5."
+                content=FEEDBACK_VALIDATION_FAILED.format(
+                    reason=reason,
+                    console_logs=console_logs_formatted
+                )
             )
             
             return {
                 "messages": [feedback_message],
-                "test_failures": [error_msg],
+                "test_failures": [reason],
                 "retry_count": current_retry,
-                "is_completed": False,
+                "is_completed": False,  # Reset completion flag to retry
             }
     
     def should_continue(state: AgentState) -> str:

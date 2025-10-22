@@ -1,5 +1,5 @@
 """
-Utility functions for playable validation and debugging.
+VLM validation utilities for playable testing and validation.
 """
 import re
 import logging

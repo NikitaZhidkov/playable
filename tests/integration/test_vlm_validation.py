@@ -6,8 +6,8 @@ import pytest
 import asyncio
 from pathlib import Path
 from llm_client import VLMClient
-from utils import validate_playable_with_vlm, _parse_vlm_response, _save_debug_screenshot
-from playbook import PLAYABLE_VALIDATION_PROMPT
+from vlm_utils import validate_playable_with_vlm, _parse_vlm_response, _save_debug_screenshot
+from playbook import VLM_PLAYABLE_VALIDATION_PROMPT
 from PIL import Image
 import io
 
@@ -47,7 +47,7 @@ async def test_vlm_validation_with_real_screenshot():
         screenshot_bytes=screenshot_bytes,
         console_logs=console_logs,
         user_prompt=user_prompt,
-        template_str=PLAYABLE_VALIDATION_PROMPT
+        template_str=VLM_PLAYABLE_VALIDATION_PROMPT
     )
     
     # Assertions

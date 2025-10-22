@@ -7,31 +7,12 @@ import google.generativeai as genai
 from jinja2 import Template
 from PIL import Image
 import io
+from playbook import SYSTEM_PIXI_GAME_DEVELOPER_PROMPT
 
 # Load environment variables from .env file
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-# System prompt for pixi.js game development
-SYSTEM_PROMPT = """You are an expert pixi.js game developer. Your task is to create complete, playable games using pixi.js.
-
-When creating a game:
-1. Create a proper HTML file with CDN imports for pixi.js
-2. Write clean, well-structured JavaScript code
-3. Include game logic, graphics, and interactivity
-4. Add comments explaining key parts of the code
-5. Make games that are visually appealing and fun to play
-6. Consider responsive design and different screen sizes
-
-Work step by step:
-1. Plan the game structure
-2. Create the HTML file with proper structure
-3. Write the game code
-4. Test and refine
-5. Call the 'complete' tool when finished
-
-Always create working, complete games. Don't leave placeholders or TODOs."""
 
 
 class LLMClient:
@@ -168,9 +149,13 @@ class LLMClient:
         self,
         messages: list,
         tools: list[Tool],
-        max_tokens: int = 8000
+        max_tokens: int = 8000,
+        system: str = None
     ):
         """Call Claude with messages and tools."""
+        if system is None:
+            raise ValueError("System prompt must be provided")
+            
         anthropic_messages = self.convert_messages_for_anthropic(messages)
         anthropic_tools = self.format_tools_for_anthropic(tools)
         
@@ -179,7 +164,7 @@ class LLMClient:
         response = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
-            system=SYSTEM_PROMPT,
+            system=system,
             messages=anthropic_messages,
             tools=anthropic_tools
         )
