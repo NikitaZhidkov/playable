@@ -20,13 +20,25 @@ class Session:
         initial_prompt: str,
         created_at: str,
         last_modified: str,
-        iterations: list[dict] = None
+        iterations: list[dict] = None,
+        message_history: list[dict] = None,
+        selected_pack: Optional[str] = None,
+        status: str = "in_progress",
+        git_branch: Optional[str] = None,
+        graph_state: Optional[dict] = None,
+        last_error: Optional[str] = None
     ):
         self.session_id = session_id
         self.initial_prompt = initial_prompt
         self.created_at = created_at
         self.last_modified = last_modified
         self.iterations = iterations or []
+        self.message_history = message_history or []
+        self.selected_pack = selected_pack
+        self.status = status
+        self.git_branch = git_branch
+        self.graph_state = graph_state or {}
+        self.last_error = last_error
     
     def to_dict(self) -> dict:
         """Convert session to dictionary."""
@@ -35,7 +47,13 @@ class Session:
             "initial_prompt": self.initial_prompt,
             "created_at": self.created_at,
             "last_modified": self.last_modified,
-            "iterations": self.iterations
+            "iterations": self.iterations,
+            "message_history": self.message_history,
+            "selected_pack": self.selected_pack,
+            "status": self.status,
+            "git_branch": self.git_branch,
+            "graph_state": self.graph_state,
+            "last_error": self.last_error
         }
     
     @classmethod
@@ -46,7 +64,13 @@ class Session:
             initial_prompt=data["initial_prompt"],
             created_at=data["created_at"],
             last_modified=data["last_modified"],
-            iterations=data.get("iterations", [])
+            iterations=data.get("iterations", []),
+            message_history=data.get("message_history", []),
+            selected_pack=data.get("selected_pack"),
+            status=data.get("status", "in_progress"),
+            git_branch=data.get("git_branch"),
+            graph_state=data.get("graph_state", {}),
+            last_error=data.get("last_error")
         )
     
     def add_iteration(self, feedback: str, timestamp: str):
@@ -56,6 +80,58 @@ class Session:
             "timestamp": timestamp
         })
         self.last_modified = timestamp
+    
+    def set_message_history(self, messages: list):
+        """Save message history for this session."""
+        # Convert LangChain messages to serializable format
+        self.message_history = []
+        for msg in messages:
+            msg_dict = {
+                "type": msg.__class__.__name__,
+                "content": msg.content
+            }
+            # Include tool calls if present
+            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                msg_dict["tool_calls"] = msg.tool_calls
+            # Include tool_call_id for tool messages
+            if hasattr(msg, 'tool_call_id'):
+                msg_dict["tool_call_id"] = msg.tool_call_id
+            self.message_history.append(msg_dict)
+    
+    def get_langchain_messages(self) -> list:
+        """Convert stored message history back to LangChain messages."""
+        from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+        
+        messages = []
+        for msg_dict in self.message_history:
+            msg_type = msg_dict.get("type", "HumanMessage")
+            content = msg_dict.get("content", "")
+            
+            if msg_type == "HumanMessage":
+                messages.append(HumanMessage(content=content))
+            elif msg_type == "AIMessage":
+                tool_calls = msg_dict.get("tool_calls", [])
+                messages.append(AIMessage(content=content, tool_calls=tool_calls))
+            elif msg_type == "ToolMessage":
+                tool_call_id = msg_dict.get("tool_call_id", "")
+                messages.append(ToolMessage(content=content, tool_call_id=tool_call_id))
+        
+        return messages
+    
+    def save_graph_state(self, state: dict):
+        """Save essential graph state for recovery."""
+        self.graph_state = {
+            "retry_count": state.get("retry_count", 0),
+            "test_failures": state.get("test_failures", []),
+            "is_completed": state.get("is_completed", False),
+            "is_feedback_mode": state.get("is_feedback_mode", False),
+            "original_prompt": state.get("original_prompt", ""),
+            "task_description": state.get("task_description", "")
+        }
+    
+    def get_graph_state(self) -> dict:
+        """Retrieve saved graph state."""
+        return self.graph_state.copy() if self.graph_state else {}
 
 
 def generate_session_id() -> str:
@@ -68,7 +144,7 @@ def generate_session_id() -> str:
     return f"{timestamp}_{short_uuid}"
 
 
-def create_session(initial_prompt: str, base_path: Path = Path("games")) -> Session:
+def create_session(initial_prompt: str, base_path: Path = Path("games"), selected_pack: Optional[str] = None) -> Session:
     """Create a new session."""
     session_id = generate_session_id()
     timestamp = datetime.now().isoformat()
@@ -77,7 +153,8 @@ def create_session(initial_prompt: str, base_path: Path = Path("games")) -> Sess
         session_id=session_id,
         initial_prompt=initial_prompt,
         created_at=timestamp,
-        last_modified=timestamp
+        last_modified=timestamp,
+        selected_pack=selected_pack
     )
     
     # Create session directory structure

@@ -2,11 +2,12 @@ from typing import Self
 import dagger
 from dagger import function, object_type, Container, Directory, ReturnType
 import hashlib
-from dagger_utils import ExecResult
+from .dagger_utils import ExecResult
 import uuid
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter, retry_if_exception_type, before_sleep_log
-from dagger_utils import write_files_bulk as _write_files_bulk
+from .dagger_utils import write_files_bulk as _write_files_bulk
+from .base_container import BaseContainer
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def _sorted_set(s: set[str]) -> list[str]:
 
 
 @object_type
-class Workspace:
+class Workspace(BaseContainer):
     ctr: Container
     start: Directory
     protected: set[str]
@@ -205,38 +206,49 @@ class Workspace:
         return cloned
 
     @function
-    @retry_transport_errors
-    async def run_playwright(self,
-                            service: dagger.Service,
-                            output_path: str | None,
-                            port: int = 5173
-    ) -> ExecResult:
-        config_content = await self.read_file("playwright.config.ts")
-        host = "debughost"
-        updated_config = config_content.replace(
-            'baseURL: "http://127.0.0.1:8080"',
-            f'baseURL: "http://{host}:{port}"'
-        )
-        playwright_ctr = (
-            self.client.container()
-            .from_("mcr.microsoft.com/playwright:v1.52.0")
-            .with_directory("/app", self.ctr.directory("."))
-            .with_workdir("/app")
-            .with_new_file("playwright.config.ts", updated_config)
-            .with_service_binding(host, service)
-            .with_exposed_port(port)
-            .with_exec(["npm", "install"])
-            .with_exec(["npx", "playwright", "test"], expect=ReturnType.ANY)
-        )
-
-        result = await ExecResult.from_ctr(
-            playwright_ctr
-        )
-        if output_path:
-            await playwright_ctr.directory("/app/test_results").export(output_path)
-        return result
-
-    @function
     def add_env_variable(self, name: str, value: str) -> Self:
         self.ctr = self.ctr.with_env_variable(name, value)
         return self
+
+    @function
+    def copy_directory(self, source_dir: Directory, target_path: str = ".") -> Self:
+        """
+        Copy a directory into the workspace.
+        
+        Args:
+            source_dir: The Dagger Directory to copy
+            target_path: Where to copy it in the container (default: ".")
+        
+        Returns:
+            Self for method chaining
+        """
+        self.ctr = self.ctr.with_directory(target_path, source_dir)
+        return self
+
+    @function
+    @retry_transport_errors
+    async def list_files(self, pattern: str) -> list[str]:
+        """
+        List files matching a glob pattern.
+        
+        Args:
+            pattern: Glob pattern (e.g., "test_cases/test_case_*.json")
+        
+        Returns:
+            List of file paths relative to workspace root
+        """
+        try:
+            # Use find command with pattern matching
+            # This approach works even if no files match (returns empty)
+            result = await self.ctr.with_exec(
+                ["sh", "-c", f"find . -path './{pattern}' -type f 2>/dev/null | sed 's|^./||' || true"],
+                expect=ReturnType.ANY
+            ).stdout()
+            
+            # Parse output - one file per line
+            files = [f.strip() for f in result.strip().split('\n') if f.strip()]
+            logger.debug(f"list_files({pattern}): Found {len(files)} files")
+            return files
+        except Exception as e:
+            logger.warning(f"list_files({pattern}): Error listing files: {e}")
+            return []

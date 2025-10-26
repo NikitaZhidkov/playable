@@ -12,19 +12,12 @@ Skip with: pytest tests/ -m "not integration"
 import pytest
 import asyncio
 import dagger
-from test_game import validate_game_in_workspace, GameTestResult
-from workspace import Workspace
+from test_game import validate_game_in_workspace, GameTestResult, TEST_SCRIPT
+from src.containers import Workspace
 
 
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture
-async def dagger_client():
-    """Provide a Dagger client for tests."""
-    async with dagger.Connection() as client:
-        yield client
 
 
 @pytest.fixture
@@ -119,21 +112,33 @@ class TestValidateGameInWorkspaceIntegration:
     """Integration tests for validate_game_in_workspace with real containers."""
     
     @pytest.mark.asyncio
-    async def test_working_game_passes(self, simple_working_game_workspace):
+    async def test_working_game_passes(self, simple_working_game_workspace, playwright_container):
         """Test that a working game passes validation."""
-        result = await validate_game_in_workspace(simple_working_game_workspace)
+        # Copy workspace files to playwright container and add test script
+        playwright_container.copy_directory(
+            simple_working_game_workspace.container().directory(".")
+        ).with_test_script(TEST_SCRIPT)
+        
+        result = await validate_game_in_workspace(playwright_container)
         
         assert isinstance(result, GameTestResult)
         assert result.success is True
         assert len(result.errors) == 0
     
     @pytest.mark.asyncio
-    async def test_broken_game_fails(self, broken_game_workspace):
-        """Test that a broken game fails validation with errors."""
-        result = await validate_game_in_workspace(broken_game_workspace)
+    async def test_broken_game_fails(self, broken_game_workspace, playwright_container):
+        """Test that a broken game captures errors (VLM will decide if it failed)."""
+        # Copy workspace files to playwright container and add test script
+        playwright_container.copy_directory(
+            broken_game_workspace.container().directory(".")
+        ).with_test_script(TEST_SCRIPT)
+        
+        result = await validate_game_in_workspace(playwright_container)
         
         assert isinstance(result, GameTestResult)
-        assert result.success is False
+        # Test script always returns success=True, VLM decides actual success
+        assert result.success is True
+        # But it should capture the error
         assert len(result.errors) > 0
         
         # Check that we caught the JavaScript error
@@ -141,7 +146,7 @@ class TestValidateGameInWorkspaceIntegration:
         assert 'undefinedfunction' in error_text or 'error' in error_text
     
     @pytest.mark.asyncio
-    async def test_game_with_external_resource_missing(self, dagger_client):
+    async def test_game_with_external_resource_missing(self, dagger_client, playwright_container):
         """Test game that tries to load missing external resource."""
         html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -166,11 +171,17 @@ class TestValidateGameInWorkspaceIntegration:
         
         workspace = workspace.write_file("index.html", html_content, force=True)
         
-        result = await validate_game_in_workspace(workspace)
+        # Copy workspace files to playwright container and add test script
+        playwright_container.copy_directory(
+            workspace.container().directory(".")
+        ).with_test_script(TEST_SCRIPT)
+        
+        result = await validate_game_in_workspace(playwright_container)
         
         assert isinstance(result, GameTestResult)
-        # This should fail because of the missing resource
-        assert result.success is False
+        # Test script always returns success=True, VLM decides actual success
+        assert result.success is True
+        # But it should capture the error about missing resource
         assert len(result.errors) > 0
         
         # Check that we detected the missing resource
@@ -182,7 +193,7 @@ class TestValidateGameWithComplexSetup:
     """Integration tests with more complex game setups."""
     
     @pytest.mark.asyncio
-    async def test_game_with_separate_js_file(self, dagger_client):
+    async def test_game_with_separate_js_file(self, dagger_client, playwright_container):
         """Test game with external JavaScript file."""
         html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -211,14 +222,19 @@ document.getElementById('output').textContent = 'Game initialized!';
         workspace = workspace.write_file("index.html", html_content, force=True)
         workspace = workspace.write_file("game.js", js_content, force=True)
         
-        result = await validate_game_in_workspace(workspace)
+        # Copy workspace files to playwright container and add test script
+        playwright_container.copy_directory(
+            workspace.container().directory(".")
+        ).with_test_script(TEST_SCRIPT)
+        
+        result = await validate_game_in_workspace(playwright_container)
         
         assert isinstance(result, GameTestResult)
         assert result.success is True
         assert len(result.errors) == 0
     
     @pytest.mark.asyncio
-    async def test_game_with_css_and_js(self, dagger_client):
+    async def test_game_with_css_and_js(self, dagger_client, playwright_container):
         """Test game with both CSS and JS files."""
         html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -265,7 +281,12 @@ console.log('App ready!');
         workspace = workspace.write_file("style.css", css_content, force=True)
         workspace = workspace.write_file("app.js", js_content, force=True)
         
-        result = await validate_game_in_workspace(workspace)
+        # Copy workspace files to playwright container and add test script
+        playwright_container.copy_directory(
+            workspace.container().directory(".")
+        ).with_test_script(TEST_SCRIPT)
+        
+        result = await validate_game_in_workspace(playwright_container)
         
         assert isinstance(result, GameTestResult)
         assert result.success is True

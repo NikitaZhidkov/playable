@@ -1,0 +1,19 @@
+<pack name="Racing Pack">
+  <asset name="car_black_1.png" width="71" height="131" description="Dark gray race car from above, sleek design with white accents."/>
+  <asset name="car_blue_2.png" width="71" height="116" description="Blue racing car, top-down view, white stripe detail."/>
+  <asset name="car_green_3.png" width="70" height="131" description="Green racing car, top-down view, white racing stripes."/>
+  <asset name="car_red_4.png" width="70" height="131" description="Orange traffic cone, tall and rectangular, with white accents."/>
+  <asset name="car_yellow_5.png" width="70" height="121" description="Bright yellow racing car from above, sleek sports car with white stripes."/>
+  <asset name="land_sand12.png" width="128" height="128" description="Beige wavy terrain, smooth, minimalist background texture"/>
+  <asset name="oil.png" width="109" height="95" description="Gray oil spill on green grass, irregular blob shape."/>
+  <asset name="road_asphalt03.png" width="128" height="128" description="Orange &amp; white striped ring, likely a buoy or marker."/>
+  <asset name="road_asphalt04.png" width="128" height="128" description="Orange and white striped barrier on light blue track."/>
+  <asset name="road_asphalt05.png" width="128" height="128" description="Orange and white striped pool float, circular, light blue water."/>
+  <asset name="road_asphalt21.png" width="128" height="128" description="Orange &amp; white striped marker, race track boundary object"/>
+  <asset name="road_asphalt22.png" width="128" height="128" description="The image provided is a solid color swatch. Without any visual elements, it's impossible to describe a game asset. Please provide an image of the game asset for a proper description."/>
+  <asset name="road_asphalt23.png" width="128" height="128" description="Light blue panel with orange and white striped edge, likely a border or segment."/>
+  <asset name="road_asphalt24.png" width="128" height="128" description="Orange/white striped barrier, likely for track edge."/>
+  <asset name="road_asphalt25.png" width="128" height="128" description="'Blue pool with orange/white striped border, circular water obstacle.'"/>
+  <asset name="road_asphalt40.png" width="128" height="128" description="Orange &amp; white checkered barrier, race track hazard object."/>
+  <asset name="rock1.png" width="89" height="72" description="Light blue ice shard asset, angular, with dark blue outline."/>
+</pack>

@@ -15,3 +15,9 @@ LLM_VISION_MODEL=gemini-1.5-flash
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your-langsmith-api-key-here
 LANGCHAIN_PROJECT=playable-agent
+
+# Langfuse for LLM observability and token tracking
+# Get your keys from https://cloud.langfuse.com/
+LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key-here
+LANGFUSE_SECRET_KEY=sk-lf-your-secret-key-here
+LANGFUSE_HOST=https://cloud.langfuse.com

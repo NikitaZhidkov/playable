@@ -1,18 +1,19 @@
 import os
 from anthropic import Anthropic
-from custom_types import Tool, ToolUse, TextRaw
+from src.custom_types import Tool, ToolUse, TextRaw
 import logging
 from dotenv import load_dotenv
-import google.generativeai as genai
-from jinja2 import Template
-from PIL import Image
-import io
-from playbook import SYSTEM_PIXI_GAME_DEVELOPER_PROMPT
+from src.prompts import SYSTEM_PIXI_GAME_DEVELOPER_PROMPT
+from langfuse import Langfuse
+from langfuse.decorators import observe, langfuse_context
 
 # Load environment variables from .env file
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Initialize Langfuse client
+langfuse = Langfuse()
 
 
 class LLMClient:
@@ -145,6 +146,7 @@ class LLMClient:
         
         return anthropic_messages
     
+    @observe(as_type="generation")
     def call(
         self,
         messages: list,
@@ -161,6 +163,19 @@ class LLMClient:
         
         logger.info(f"Calling Claude with {len(anthropic_messages)} messages and {len(anthropic_tools)} tools")
         
+        # Update Langfuse context with model and input
+        langfuse_context.update_current_observation(
+            model=self.model,
+            input=anthropic_messages,
+            metadata={
+                "system_prompt_length": len(system) if system else 0,
+                "num_tools": len(anthropic_tools),
+                "max_tokens": max_tokens,
+                "provider": "anthropic",
+                "conversation_length": len(messages)
+            }
+        )
+        
         response = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -169,70 +184,50 @@ class LLMClient:
             tools=anthropic_tools
         )
         
+        # Track token usage with Langfuse
+        # Following Langfuse best practices: explicitly ingest token counts
+        # Do NOT calculate costs - let Langfuse handle that if configured
+        usage = response.usage
+        
+        # Prepare usage data for Langfuse (token counts only)
+        usage_data = {
+            "input": usage.input_tokens,
+            "output": usage.output_tokens,
+            "total": usage.input_tokens + usage.output_tokens,
+            "unit": "TOKENS"
+        }
+        
+        # Include cache information if available (for Anthropic prompt caching)
+        # Langfuse can use this for accurate cost calculation if model pricing is configured
+        if hasattr(usage, 'cache_creation_input_tokens') and usage.cache_creation_input_tokens:
+            usage_data["cache_creation_input_tokens"] = usage.cache_creation_input_tokens
+            
+        if hasattr(usage, 'cache_read_input_tokens') and usage.cache_read_input_tokens:
+            usage_data["cache_read_input_tokens"] = usage.cache_read_input_tokens
+        
+        # Log token usage
+        cache_info = ""
+        if hasattr(usage, 'cache_creation_input_tokens') or hasattr(usage, 'cache_read_input_tokens'):
+            cache_creation = getattr(usage, 'cache_creation_input_tokens', 0)
+            cache_read = getattr(usage, 'cache_read_input_tokens', 0)
+            if cache_creation or cache_read:
+                cache_info = f" (cache_write: {cache_creation}, cache_read: {cache_read})"
+        
+        logger.info(
+            f"Token usage - Input: {usage.input_tokens}{cache_info}, "
+            f"Output: {usage.output_tokens}, Total: {usage.input_tokens + usage.output_tokens}"
+        )
+        
+        langfuse_context.update_current_observation(
+            output=response.content,
+            usage=usage_data,
+            metadata={
+                "stop_reason": response.stop_reason,
+                "model": response.model,
+                "has_tool_calls": bool(any(block.type == "tool_use" for block in response.content))
+            }
+        )
+        
         return response
 
-
-class VLMClient:
-    """Client for interacting with Gemini Vision Language Model."""
-    
-    def __init__(self, api_key: str | None = None, model: str | None = None):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-        if not self.api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment")
-        
-        # Configure Gemini
-        genai.configure(api_key=self.api_key)
-        
-        # Use model from: parameter > LLM_VISION_MODEL env > default
-        self.model_name = (os.environ.get("LLM_VISION_MODEL"))
-        
-        self.model = genai.GenerativeModel(self.model_name)
-        logger.info(f"Initialized VLMClient with model: {self.model_name}")
-    
-    def validate_with_screenshot(
-        self, 
-        screenshot_bytes: bytes, 
-        console_logs: str,
-        user_prompt: str,
-        template_str: str
-    ) -> str:
-        """
-        Validate a playable using screenshot and console logs.
-        
-        Args:
-            screenshot_bytes: PNG screenshot bytes from browser
-            console_logs: Formatted console logs from browser
-            user_prompt: Original user prompt that generated the playable
-            template_str: Jinja2 template string for the validation prompt
-        
-        Returns:
-            Raw response text from Gemini containing <answer> and <reason> tags
-        """
-        try:
-            # Render the prompt template with Jinja2
-            template = Template(template_str)
-            rendered_prompt = template.render(
-                user_prompt=user_prompt,
-                console_logs=console_logs
-            )
-            
-            logger.info(f"Validating with VLM using model: {self.model_name}")
-            logger.debug(f"Rendered prompt: {rendered_prompt[:200]}...")
-            
-            # Convert bytes to PIL Image
-            image = Image.open(io.BytesIO(screenshot_bytes))
-            
-            # Generate content with image and prompt
-            response = self.model.generate_content([rendered_prompt, image])
-            
-            logger.info("VLM validation response received")
-            logger.debug(f"VLM response: {response.text[:200]}...")
-            
-            return response.text
-            
-        except Exception as e:
-            error_msg = f"VLM validation failed: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            # Return a safe fallback response that indicates failure
-            return f"<reason>VLM validation error: {str(e)}</reason><answer>no</answer>"
 

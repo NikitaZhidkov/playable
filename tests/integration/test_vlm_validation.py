@@ -5,9 +5,8 @@ Tests the full flow: screenshot capture -> VLM validation -> result parsing.
 import pytest
 import asyncio
 from pathlib import Path
-from llm_client import VLMClient
-from vlm_utils import validate_playable_with_vlm, _parse_vlm_response, _save_debug_screenshot
-from playbook import VLM_PLAYABLE_VALIDATION_PROMPT
+from src.vlm import VLMClient, VLM_PLAYABLE_VALIDATION_PROMPT
+from src.vlm.validation import validate_playable_with_vlm, _parse_vlm_response, _save_debug_screenshot
 from PIL import Image
 import io
 

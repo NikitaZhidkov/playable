@@ -1,5 +1,5 @@
-from custom_types import Tool, ToolUse, ToolUseResult, TextRaw
-from workspace import Workspace
+from src.custom_types import Tool, ToolUse, ToolUseResult, TextRaw
+from src.containers import Workspace
 import logging
 
 logger = logging.getLogger(__name__)
