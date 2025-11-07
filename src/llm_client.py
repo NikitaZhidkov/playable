@@ -1,19 +1,20 @@
 import os
 from anthropic import Anthropic
-from src.custom_types import Tool, ToolUse, TextRaw
+from src.custom_types import Tool, ToolUse, TextRaw, ThinkingBlock, ContentBlock
 import logging
 from dotenv import load_dotenv
 from src.prompts import SYSTEM_PIXI_GAME_DEVELOPER_PROMPT
-from langfuse import Langfuse
-from langfuse.decorators import observe, langfuse_context
+from langsmith import traceable
+from langsmith.run_helpers import get_current_run_tree
 
 # Load environment variables from .env file
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Initialize Langfuse client
-langfuse = Langfuse()
+# Validate LangSmith configuration
+if not os.getenv("LANGSMITH_API_KEY"):
+    raise ValueError("LANGSMITH_API_KEY not found in environment. Set it in .env file.")
 
 
 class LLMClient:
@@ -44,7 +45,7 @@ class LLMClient:
         """
         return tools  # Our format already matches Anthropic's
     
-    def parse_anthropic_response(self, response) -> list[ToolUse | TextRaw]:
+    def parse_anthropic_response(self, response) -> list[ContentBlock]:
         """Parse Anthropic response into our custom types."""
         result = []
         
@@ -57,6 +58,8 @@ class LLMClient:
                     input=block.input,
                     id=block.id
                 ))
+            elif block.type == "thinking":
+                result.append(ThinkingBlock(thinking=block.thinking))
         
         return result
     
@@ -146,13 +149,14 @@ class LLMClient:
         
         return anthropic_messages
     
-    @observe(as_type="generation")
+    @traceable(name="claude_call", run_type="llm")
     def call(
         self,
         messages: list,
         tools: list[Tool],
         max_tokens: int = 8000,
-        system: str = None
+        system: str = None,
+        temperature: float = 1.0
     ):
         """Call Claude with messages and tools."""
         if system is None:
@@ -161,51 +165,57 @@ class LLMClient:
         anthropic_messages = self.convert_messages_for_anthropic(messages)
         anthropic_tools = self.format_tools_for_anthropic(tools)
         
-        logger.info(f"Calling Claude with {len(anthropic_messages)} messages and {len(anthropic_tools)} tools")
+        # Add prompt caching to system prompt
+        # System prompt is large and consistent, perfect for caching
+        system_with_cache = None
+        if system:
+            system_with_cache = [
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"}
+                }
+            ]
         
-        # Update Langfuse context with model and input
-        langfuse_context.update_current_observation(
-            model=self.model,
-            input=anthropic_messages,
-            metadata={
-                "system_prompt_length": len(system) if system else 0,
-                "num_tools": len(anthropic_tools),
-                "max_tokens": max_tokens,
-                "provider": "anthropic",
-                "conversation_length": len(messages)
-            }
-        )
+        # Add prompt caching to tools
+        # Tools don't change during conversation, cache them independently
+        if len(anthropic_tools) > 0:
+            anthropic_tools[-1]["cache_control"] = {"type": "ephemeral"}
+        
+        # Add prompt caching to conversation history
+        # Cache the entire conversation including the current request
+        # This allows the next request to reuse this cached context
+        if len(anthropic_messages) > 0:
+            # Add cache_control to the last message
+            # This caches everything for the NEXT request
+            msg = anthropic_messages[-1]
+            
+            # Convert content to list format if needed to add cache_control
+            if isinstance(msg["content"], str):
+                msg["content"] = [
+                    {
+                        "type": "text",
+                        "text": msg["content"],
+                        "cache_control": {"type": "ephemeral"}
+                    }
+                ]
+            elif isinstance(msg["content"], list):
+                # Add cache_control to the last content block
+                msg["content"][-1]["cache_control"] = {"type": "ephemeral"}
+        
+        logger.info(f"Calling Claude with {len(anthropic_messages)} messages and {len(anthropic_tools)} tools")
         
         response = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
-            system=system,
+            temperature=temperature,
+            system=system_with_cache,
             messages=anthropic_messages,
             tools=anthropic_tools
         )
         
-        # Track token usage with Langfuse
-        # Following Langfuse best practices: explicitly ingest token counts
-        # Do NOT calculate costs - let Langfuse handle that if configured
-        usage = response.usage
-        
-        # Prepare usage data for Langfuse (token counts only)
-        usage_data = {
-            "input": usage.input_tokens,
-            "output": usage.output_tokens,
-            "total": usage.input_tokens + usage.output_tokens,
-            "unit": "TOKENS"
-        }
-        
-        # Include cache information if available (for Anthropic prompt caching)
-        # Langfuse can use this for accurate cost calculation if model pricing is configured
-        if hasattr(usage, 'cache_creation_input_tokens') and usage.cache_creation_input_tokens:
-            usage_data["cache_creation_input_tokens"] = usage.cache_creation_input_tokens
-            
-        if hasattr(usage, 'cache_read_input_tokens') and usage.cache_read_input_tokens:
-            usage_data["cache_read_input_tokens"] = usage.cache_read_input_tokens
-        
         # Log token usage
+        usage = response.usage
         cache_info = ""
         if hasattr(usage, 'cache_creation_input_tokens') or hasattr(usage, 'cache_read_input_tokens'):
             cache_creation = getattr(usage, 'cache_creation_input_tokens', 0)
@@ -218,15 +228,20 @@ class LLMClient:
             f"Output: {usage.output_tokens}, Total: {usage.input_tokens + usage.output_tokens}"
         )
         
-        langfuse_context.update_current_observation(
-            output=response.content,
-            usage=usage_data,
-            metadata={
-                "stop_reason": response.stop_reason,
-                "model": response.model,
-                "has_tool_calls": bool(any(block.type == "tool_use" for block in response.content))
-            }
-        )
+        # Update LangSmith with token usage
+        run_tree = get_current_run_tree()
+        if run_tree:
+            # Calculate total input tokens (including cache tokens)
+            cache_creation = getattr(usage, 'cache_creation_input_tokens', 0)
+            cache_read = getattr(usage, 'cache_read_input_tokens', 0)
+            total_input = usage.input_tokens + cache_creation + cache_read
+            
+            # Update metadata with token usage for LangSmith UI
+            run_tree.add_metadata({
+                "prompt_tokens": total_input,
+                "completion_tokens": usage.output_tokens,
+                "total_tokens": total_input + usage.output_tokens
+            })
         
         return response
 

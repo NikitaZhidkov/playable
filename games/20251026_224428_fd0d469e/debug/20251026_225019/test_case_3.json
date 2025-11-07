@@ -1,0 +1,24 @@
+{
+  "score": 150,
+  "distance": 150.7,
+  "isGameOver": false,
+  "carPosition": {
+    "x": 480,
+    "y": 500
+  },
+  "stones": [
+    {
+      "x": 320,
+      "y": 100
+    },
+    {
+      "x": 420,
+      "y": 250
+    },
+    {
+      "x": 500,
+      "y": 400
+    }
+  ],
+  "expectedOutput": "Mid-game state with black car positioned right of center, score showing 150, distance 150m, three stones visible at different positions on road creating obstacle course, game paused without start message"
+}

@@ -16,12 +16,45 @@ An AI-powered coding agent that generates playable ads and pixi.js games from na
 # Install dependencies
 pip install -r requirements.txt
 
-# Set your Anthropic API key
+# Set environment variables (copy from ENV_TEMPLATE.txt)
 export ANTHROPIC_API_KEY="your-api-key-here"
+export GEMINI_API_KEY="your-gemini-key-here"
+export LANGSMITH_API_KEY="your-langsmith-key-here"
 
 # Run the agent
-python main.py
+python run.py
 ```
+
+## Running Games Locally
+
+Games are saved to `games/<session_id>/game/`. Due to browser CORS restrictions, you **cannot** simply open `index.html` directly. Use one of these methods:
+
+### Method 1: Python HTTP Server (Recommended)
+
+```bash
+# Serve a specific game
+python serve_game.py <session_id>
+
+# List all available games
+python serve_game.py
+```
+
+This will:
+- Start a local HTTP server on port 8000
+- Automatically open the game in your browser
+- Avoid all CORS issues
+
+### Method 2: Manual HTTP Server
+
+```bash
+cd games/<session_id>/game
+python -m http.server 8000
+# Then open http://localhost:8000 in your browser
+```
+
+### Why Not file:// Protocol?
+
+Opening `index.html` directly (`file://`) triggers browser CORS restrictions that block loading assets (images, etc.). Always use an HTTP server for local development.
 
 ## Documentation
 

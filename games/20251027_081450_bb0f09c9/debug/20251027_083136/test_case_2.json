@@ -1,0 +1,11 @@
+{
+  "playerAngle": 1.57079,
+  "playerSpeed": 3,
+  "playerLap": 0,
+  "playerStunned": false,
+  "aiAngle": 4.71238,
+  "aiSpeed": 2.8,
+  "aiLap": 0,
+  "gameState": "paused",
+  "expectedOutput": "Mid-race state with blue player car at right side of circular track (3 o'clock position), moving at medium speed (speed display shows 30), red AI car at left side of track (9 o'clock position), both cars in first lap, lap counter showing 1/3, circular track visible with rocks and oil obstacles scattered around"
+}

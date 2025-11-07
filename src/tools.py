@@ -1,4 +1,4 @@
-from src.custom_types import Tool, ToolUse, ToolUseResult, TextRaw
+from src.custom_types import Tool, ToolUse, ToolUseResult, TextRaw, ThinkingBlock
 from src.containers import Workspace
 import logging
 
@@ -115,6 +115,8 @@ class FileOperations():
                 match block:
                     case TextRaw(text=text):
                         logger.info(f"LLM output: {text}")
+                    case ThinkingBlock(thinking=thinking):
+                        logger.debug(f"Thinking: {thinking[:200]}...")
                     case _:
                         pass
                 continue

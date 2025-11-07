@@ -192,6 +192,13 @@ Project Structure Requirements:
 - Keep CSS styling in separate .css file(s)
 - Use proper HTML5 structure with DOCTYPE, meta tags, etc.
 
+CRITICAL - PixiJS API (Version 8.x):
+Use app.view NOT app.canvas - app.canvas does NOT exist in PixiJS 8.x!
+  ✓ CORRECT: document.getElementById('gameContainer').appendChild(app.view);
+  ✓ CORRECT: app.view.addEventListener('pointerdown', (e) => {{ ... }});
+  ✗ WRONG: document.body.appendChild(app.canvas); // ERROR: Cannot read properties of undefined
+  ✗ WRONG: app.canvas.addEventListener(...); // app.canvas is undefined!
+
 {TOOL_USAGE_RULES}
 
 Work step by step:
@@ -224,6 +231,13 @@ In playable ads, the game MUST be visible immediately when opened, but PAUSED un
 
 Your task is to fix issues or add new features to the existing game files according to the user's request.
 
+CRITICAL - PixiJS API (Version 8.x):
+Use app.view NOT app.canvas - app.canvas does NOT exist in PixiJS 8.x!
+  ✓ CORRECT: document.getElementById('gameContainer').appendChild(app.view);
+  ✓ CORRECT: app.view.addEventListener('pointerdown', (e) => {{ ... }});
+  ✗ WRONG: document.body.appendChild(app.canvas); // ERROR: Cannot read properties of undefined
+  ✗ WRONG: app.canvas.addEventListener(...); // app.canvas is undefined!
+
 {TOOL_USAGE_RULES}
 
 Rules for changing files:
@@ -248,6 +262,14 @@ ASSET_PACK_INSTRUCTIONS = """
 
 {asset_context}
 
+## Asset Descriptions
+
+Each asset may have two types of descriptions:
+- **description**: A brief English description of the asset
+- **description_human**: A human-readable description (may be in different languages) that provides more context about what the asset represents and how it should be used
+
+Use both descriptions to better understand what each asset is and how to use it effectively in your game.
+
 Remember to use these assets to make your game visually appealing!
 """
 
@@ -264,6 +286,14 @@ Optional Packages (include if needed):
   - GIF Support: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/gif.min.js
   - Math Extras: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/math-extras.min.js
   - Unsafe Eval: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/unsafe-eval.min.js
+
+IMPORTANT - PixiJS API Correction:
+In PixiJS 8.x, use app.view (NOT app.canvas):
+  - CORRECT: document.body.appendChild(app.view);
+  - CORRECT: app.view.addEventListener('pointerdown', ...);
+  - WRONG: document.body.appendChild(app.canvas); // Will cause "Cannot read properties of undefined" error
+  - WRONG: app.canvas.addEventListener(...); // app.canvas does not exist!
+The canvas element is accessed via app.view, not app.canvas.
 
 IMPORTANT - File Naming Convention:
 Your main HTML file MUST be named 'index.html'. This is the required entry point for the game.
@@ -306,6 +336,7 @@ const app = new PIXI.Application({
     height: 600,
     backgroundColor: 0x1099bb
 });
+// IMPORTANT: Use app.view (NOT app.canvas!)
 document.body.appendChild(app.view);
 """
 

@@ -2,6 +2,8 @@
 
 This document describes the comprehensive Langfuse observability integration in the Playable Agent project.
 
+**Using Langfuse 3.8.1** - Latest version with modern API
+
 ## Overview
 
 Langfuse is integrated throughout the codebase to provide:

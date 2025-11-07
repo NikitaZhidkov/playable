@@ -1,0 +1,24 @@
+{
+  "score": 480,
+  "isGameOver": true,
+  "isPaused": true,
+  "hasStarted": true,
+  "speed": 4,
+  "playerPosition": {
+    "x": 380,
+    "y": 500
+  },
+  "obstacles": [
+    {
+      "x": 380,
+      "y": 480,
+      "speed": 4
+    },
+    {
+      "x": 420,
+      "y": 350,
+      "speed": 3
+    }
+  ],
+  "expectedOutput": "Game over state showing black car very close to a rock obstacle (collision scenario), score showing 480, game over popup visible with final score and restart message, two rock obstacles on tiled road"
+}

@@ -1,0 +1,11 @@
+{
+  "playerAngle": 0,
+  "playerSpeed": 0,
+  "playerLap": 0,
+  "playerStunned": false,
+  "aiAngle": 3.14159,
+  "aiSpeed": 2.5,
+  "aiLap": 0,
+  "gameState": "paused",
+  "expectedOutput": "Game start screen with player car positioned at top of circular track (12 o'clock position), AI opponent car positioned at bottom of track (6 o'clock position), both cars stationary, lap counter showing 1/3, speed showing 0, rocks and oil spills scattered around track but safely positioned away from car spawn points, white finish line visible at top of track"
+}

@@ -1,0 +1,11 @@
+{
+  "playerAngle": 6.28318,
+  "playerSpeed": 4,
+  "playerLap": 1,
+  "playerStunned": false,
+  "aiAngle": 7.85398,
+  "aiSpeed": 3.2,
+  "aiLap": 1,
+  "gameState": "paused",
+  "expectedOutput": "Second lap in progress with blue player car completing one full lap (back near top position), player at maximum speed (speed shows 40), red AI car also in second lap but ahead at bottom-right of track, lap counter shows 2/3, both cars racing around circular track with obstacles visible"
+}

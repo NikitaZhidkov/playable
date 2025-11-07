@@ -27,6 +27,8 @@ Based on Langfuse documentation and best practices:
 #### Claude (Anthropic) - `src/llm_client.py`
 
 ```python
+from langfuse import observe, get_client
+
 @observe(as_type="generation")
 def call(...):
     # ... API call ...
@@ -45,8 +47,9 @@ def call(...):
     if hasattr(usage, 'cache_read_input_tokens'):
         usage_data["cache_read_input_tokens"] = usage.cache_read_input_tokens
     
-    # Send to Langfuse
-    langfuse_context.update_current_observation(
+    # Send to Langfuse (modern API)
+    langfuse = get_client()
+    langfuse.update_current_generation(
         output=response.content,
         usage=usage_data,
         metadata={...}
@@ -56,6 +59,8 @@ def call(...):
 #### Gemini (Google) - `src/vlm/client.py`
 
 ```python
+from langfuse import observe, get_client
+
 @observe(as_type="generation")
 def validate_with_screenshot(...):
     # ... API call ...
@@ -72,8 +77,9 @@ def validate_with_screenshot(...):
     if hasattr(usage_metadata, 'cached_content_token_count'):
         usage_data["cached_content_token_count"] = usage_metadata.cached_content_token_count
     
-    # Send to Langfuse
-    langfuse_context.update_current_observation(
+    # Send to Langfuse (modern API)
+    langfuse = get_client()
+    langfuse.update_current_generation(
         output=response.text,
         usage=usage_data,
         metadata={...}

@@ -1,0 +1,12 @@
+{
+  "score": 0,
+  "playerPosition": {
+    "x": 400,
+    "y": 500
+  },
+  "gameSpeed": 2,
+  "stones": [],
+  "gameOver": false,
+  "showPauseText": true,
+  "expectedOutput": "Game start state with black car centered at bottom of road, score showing 0, no stones visible, 'TAP TO START!' text displayed"
+}

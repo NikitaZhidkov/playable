@@ -1,0 +1,25 @@
+{
+  "session_id": "20251026_162754_de67ee63",
+  "initial_prompt": "simple car racing where black car avoid stones, solo play",
+  "created_at": "2025-10-26T16:27:54.857769",
+  "last_modified": "2025-10-26T16:28:01.004469",
+  "iterations": [],
+  "message_history": [
+    {
+      "type": "HumanMessage",
+      "content": "TASK:\nsimple car racing where black car avoid stones, solo play\n\nPlease create a complete, working pixi.js game. Make sure to use the correct PixiJS CDN link specified above in your HTML file."
+    }
+  ],
+  "selected_pack": "Racing Pack",
+  "status": "failed",
+  "git_branch": null,
+  "graph_state": {
+    "retry_count": 0,
+    "test_failures": [],
+    "is_completed": false,
+    "is_feedback_mode": false,
+    "original_prompt": "simple car racing where black car avoid stones, solo play",
+    "task_description": "simple car racing where black car avoid stones, solo play"
+  },
+  "last_error": "Langfuse.update_current_generation() got an unexpected keyword argument 'usage'"
+}

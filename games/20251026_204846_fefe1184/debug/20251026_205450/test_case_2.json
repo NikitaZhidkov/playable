@@ -1,0 +1,17 @@
+{
+  "score": 50,
+  "playerPosition": {
+    "x": 350,
+    "y": 500
+  },
+  "gameSpeed": 2,
+  "stones": [
+    {
+      "x": 450,
+      "y": 300
+    }
+  ],
+  "gameOver": false,
+  "showPauseText": false,
+  "expectedOutput": "Early gameplay with black car positioned left of center, score showing 50, one stone visible in middle-upper area of road"
+}

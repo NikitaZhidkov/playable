@@ -1,0 +1,19 @@
+{
+  "score": 50,
+  "isGameOver": false,
+  "isPaused": true,
+  "hasStarted": true,
+  "speed": 2,
+  "playerPosition": {
+    "x": 350,
+    "y": 500
+  },
+  "obstacles": [
+    {
+      "x": 450,
+      "y": 300,
+      "speed": 3
+    }
+  ],
+  "expectedOutput": "Game in progress with black car slightly left of center, score showing 50, one rock obstacle visible in the middle-upper area of the tiled road, scrolling background paused"
+}

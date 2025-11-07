@@ -1,0 +1,17 @@
+{
+  "score": 1250,
+  "playerPosition": {
+    "x": 400,
+    "y": 500
+  },
+  "gameSpeed": 4.5,
+  "stones": [
+    {
+      "x": 400,
+      "y": 480
+    }
+  ],
+  "gameOver": true,
+  "showPauseText": false,
+  "expectedOutput": "Game over state with 'GAME OVER!' message displayed, score showing 1250, stone very close to player car position indicating collision"
+}

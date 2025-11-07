@@ -1,0 +1,19 @@
+<pack name="Racing Pack">
+  <asset name="car_black_1.png" width="71" height="131" description="Asset: car_black_1"/>
+  <asset name="car_blue_2.png" width="71" height="116" description="Asset: car_blue_2"/>
+  <asset name="car_green_3.png" width="70" height="131" description="Asset: car_green_3"/>
+  <asset name="car_red_4.png" width="70" height="131" description="Asset: car_red_4"/>
+  <asset name="car_yellow_5.png" width="70" height="121" description="Asset: car_yellow_5"/>
+  <asset name="land_sand12.png" width="128" height="128" description="Asset: land_sand12"/>
+  <asset name="oil.png" width="109" height="95" description="Asset: oil"/>
+  <asset name="road_asphalt03.png" width="128" height="128" description="Asset: road_asphalt03"/>
+  <asset name="road_asphalt04.png" width="128" height="128" description="Asset: road_asphalt04"/>
+  <asset name="road_asphalt05.png" width="128" height="128" description="Asset: road_asphalt05"/>
+  <asset name="road_asphalt21.png" width="128" height="128" description="Asset: road_asphalt21"/>
+  <asset name="road_asphalt22.png" width="128" height="128" description="Asset: road_asphalt22"/>
+  <asset name="road_asphalt23.png" width="128" height="128" description="Asset: road_asphalt23"/>
+  <asset name="road_asphalt24.png" width="128" height="128" description="Asset: road_asphalt24"/>
+  <asset name="road_asphalt25.png" width="128" height="128" description="Asset: road_asphalt25"/>
+  <asset name="road_asphalt40.png" width="128" height="128" description="Asset: road_asphalt40"/>
+  <asset name="rock1.png" width="89" height="72" description="Asset: rock1"/>
+</pack>

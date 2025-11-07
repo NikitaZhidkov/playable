@@ -1,0 +1,11 @@
+{
+  "playerAngle": 1.0472,
+  "playerSpeed": 1,
+  "playerLap": 0,
+  "playerStunned": true,
+  "aiAngle": 2.0944,
+  "aiSpeed": 3.0,
+  "aiLap": 0,
+  "gameState": "paused",
+  "expectedOutput": "Player car stunned after hitting oil spill, blue car positioned at top-right of circular track (60 degrees), moving slowly (speed shows 10), red AI car continuing normally ahead at right side of track, lap counter shows 1/3, rocks and oil spills visible around the track"
+}

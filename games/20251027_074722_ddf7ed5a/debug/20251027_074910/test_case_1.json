@@ -1,0 +1,13 @@
+{
+  "score": 0,
+  "isGameOver": false,
+  "isPaused": true,
+  "hasStarted": false,
+  "speed": 2,
+  "playerPosition": {
+    "x": 400,
+    "y": 500
+  },
+  "obstacles": [],
+  "expectedOutput": "Game start screen showing black car centered on asphalt road at bottom, score displays 0, no obstacles visible, grass on both sides of the road"
+}

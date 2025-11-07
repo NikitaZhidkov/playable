@@ -1,0 +1,29 @@
+{
+  "score": 250,
+  "isGameOver": false,
+  "isPaused": true,
+  "hasStarted": true,
+  "speed": 3,
+  "playerPosition": {
+    "x": 500,
+    "y": 500
+  },
+  "obstacles": [
+    {
+      "x": 350,
+      "y": 200,
+      "speed": 4
+    },
+    {
+      "x": 450,
+      "y": 400,
+      "speed": 3
+    },
+    {
+      "x": 300,
+      "y": 100,
+      "speed": 5
+    }
+  ],
+  "expectedOutput": "Mid-game state with black car positioned right of center, score showing 250, three rock obstacles visible at different positions on the tiled road creating a challenging pattern to avoid"
+}

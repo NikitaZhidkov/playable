@@ -208,3 +208,6 @@ __marimo__/
 
 # Debug images and temporary files
 temp/
+
+# Asset base64 cache (generated automatically)
+assets/*/base64/

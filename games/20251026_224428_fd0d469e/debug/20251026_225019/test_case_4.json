@@ -1,0 +1,20 @@
+{
+  "score": 75,
+  "distance": 75.9,
+  "isGameOver": true,
+  "carPosition": {
+    "x": 380,
+    "y": 500
+  },
+  "stones": [
+    {
+      "x": 380,
+      "y": 500
+    },
+    {
+      "x": 450,
+      "y": 300
+    }
+  ],
+  "expectedOutput": "Game over state with black car at collision position with stone, score showing 75, distance 75m, 'GAME OVER Click to Restart' message displayed in red text, collision stone at same position as car"
+}

@@ -1,0 +1,14 @@
+{
+  "score": 500,
+  "distance": 500.9,
+  "isGameOver": false,
+  "carPosition": {"x": 320, "y": 500},
+  "stones": [
+    {"x": 380, "y": 50},
+    {"x": 450, "y": 150},
+    {"x": 350, "y": 250},
+    {"x": 480, "y": 350},
+    {"x": 400, "y": 450}
+  ],
+  "expectedOutput": "High score gameplay with car at left side of road (320, 500), score displays 500, distance shows 500m, five gray circular stone obstacles with dark borders creating a complex obstacle course pattern that requires skilled navigation"
+}

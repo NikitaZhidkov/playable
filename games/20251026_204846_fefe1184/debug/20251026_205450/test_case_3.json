@@ -1,0 +1,25 @@
+{
+  "score": 750,
+  "playerPosition": {
+    "x": 480,
+    "y": 500
+  },
+  "gameSpeed": 3.5,
+  "stones": [
+    {
+      "x": 320,
+      "y": 150
+    },
+    {
+      "x": 420,
+      "y": 350
+    },
+    {
+      "x": 380,
+      "y": 50
+    }
+  ],
+  "gameOver": false,
+  "showPauseText": false,
+  "expectedOutput": "Mid-game state with black car on right side of road, score showing 750, three stones at different positions on road creating obstacle pattern"
+}

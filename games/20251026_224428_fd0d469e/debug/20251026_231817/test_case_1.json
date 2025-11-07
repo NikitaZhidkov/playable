@@ -1,0 +1,8 @@
+{
+  "score": 0,
+  "distance": 0,
+  "isGameOver": false,
+  "carPosition": {"x": 400, "y": 500},
+  "stones": [],
+  "expectedOutput": "Game start state with black car at center-bottom of road (400, 500), score showing 0, distance showing 0m, no stone obstacles visible on the road"
+}

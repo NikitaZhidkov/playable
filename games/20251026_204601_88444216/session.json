@@ -1,0 +1,13 @@
+{
+  "session_id": "20251026_204601_88444216",
+  "initial_prompt": "simple game where black car go ahead by road and avoid stones",
+  "created_at": "2025-10-26T20:46:01.359919",
+  "last_modified": "2025-10-26T20:46:01.359919",
+  "iterations": [],
+  "message_history": [],
+  "selected_pack": "Racing Pack",
+  "status": "in_progress",
+  "git_branch": null,
+  "graph_state": {},
+  "last_error": null
+}

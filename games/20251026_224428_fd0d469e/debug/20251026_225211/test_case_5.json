@@ -1,0 +1,32 @@
+{
+  "score": 300,
+  "distance": 300.5,
+  "isGameOver": false,
+  "carPosition": {
+    "x": 250,
+    "y": 500
+  },
+  "stones": [
+    {
+      "x": 280,
+      "y": 50
+    },
+    {
+      "x": 350,
+      "y": 150
+    },
+    {
+      "x": 520,
+      "y": 200
+    },
+    {
+      "x": 300,
+      "y": 350
+    },
+    {
+      "x": 480,
+      "y": 450
+    }
+  ],
+  "expectedOutput": "High-score complex scenario with black car positioned at left edge of road, score showing 300, distance 300m, five stones creating dense obstacle field at various positions, challenging navigation required, game paused without start message"
+}

@@ -1,0 +1,25 @@
+{
+  "session_id": "20251027_074423_4d8987db",
+  "initial_prompt": "simple game where black car go ahead by asfalt road and avoid stones, by sides grass",
+  "created_at": "2025-10-27T07:44:23.384355",
+  "last_modified": "2025-10-27T07:44:31.041924",
+  "iterations": [],
+  "message_history": [
+    {
+      "type": "HumanMessage",
+      "content": "TASK:\nsimple game where black car go ahead by asfalt road and avoid stones, by sides grass\n\nPlease create a complete, working pixi.js game. Make sure to use the correct PixiJS CDN link specified above in your HTML file."
+    }
+  ],
+  "selected_pack": "Racing Pack",
+  "status": "failed",
+  "git_branch": null,
+  "graph_state": {
+    "retry_count": 0,
+    "test_failures": [],
+    "is_completed": false,
+    "is_feedback_mode": false,
+    "original_prompt": "simple game where black car go ahead by asfalt road and avoid stones, by sides grass",
+    "task_description": "simple game where black car go ahead by asfalt road and avoid stones, by sides grass"
+  },
+  "last_error": "'RunTree' object has no attribute 'update_metadata'"
+}

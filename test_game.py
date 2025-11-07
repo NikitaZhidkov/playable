@@ -46,7 +46,13 @@ async function testGame() {
     // Import playwright (will be installed globally)
     const { chromium } = require('playwright');
     
-    const browser = await chromium.launch();
+    // Launch with flags to allow file:// protocol access to local assets
+    const browser = await chromium.launch({
+        args: [
+            '--allow-file-access-from-files',
+            '--disable-web-security'
+        ]
+    });
     const page = await browser.newPage();
     
     // Capture all console messages (errors, warnings, logs)
@@ -180,7 +186,13 @@ async function testGameWithTestCase() {
     // Import playwright (will be installed globally)
     const { chromium } = require('playwright');
     
-    const browser = await chromium.launch();
+    // Launch with flags to allow file:// protocol access to local assets
+    const browser = await chromium.launch({
+        args: [
+            '--allow-file-access-from-files',
+            '--disable-web-security'
+        ]
+    });
     const page = await browser.newPage();
     
     // Capture all console messages (errors, warnings, logs)

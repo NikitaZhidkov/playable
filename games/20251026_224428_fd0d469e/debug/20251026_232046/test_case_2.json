@@ -1,0 +1,10 @@
+{
+  "score": 25,
+  "distance": 25.3,
+  "isGameOver": false,
+  "carPosition": {"x": 350, "y": 500},
+  "stones": [
+    {"x": 450, "y": 200}
+  ],
+  "expectedOutput": "Car moved slightly left from center (350, 500), score displays 25, distance shows 25m, one stone obstacle visible at position (450, 200) on the road"
+}

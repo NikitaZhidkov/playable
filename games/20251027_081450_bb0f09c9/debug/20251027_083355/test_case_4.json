@@ -1,0 +1,11 @@
+{
+  "playerAngle": 0.785398,
+  "playerSpeed": 1,
+  "playerLap": 0,
+  "playerStunned": true,
+  "aiAngle": 2.356194,
+  "aiSpeed": 3.0,
+  "aiLap": 0,
+  "gameState": "paused",
+  "expectedOutput": "Oil collision aftermath: bright blue player car appears stunned (faded/semi-transparent) positioned at 1:30 o'clock on track, speed shows 10, bright red AI car positioned at 7:30 o'clock continuing race, lap counter displays 1/3, circular track with rocks and oil spills visible"
+}

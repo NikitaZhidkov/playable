@@ -1,0 +1,11 @@
+{
+  "playerAngle": 18.84955,
+  "playerSpeed": 3.5,
+  "playerLap": 2,
+  "playerStunned": false,
+  "aiAngle": 16.49336,
+  "aiSpeed": 3.1,
+  "aiLap": 2,
+  "gameState": "paused",
+  "expectedOutput": "Final lap intense race scenario with bright blue player car in third lap (lap counter shows 3/3), player ahead of bright red AI car, both cars at high speeds racing toward finish line, player car closer to finish line than AI car, AI car trailing behind by about quarter track distance, this represents a close finish situation where player is winning, obstacles visible but not blocking the race path"
+}

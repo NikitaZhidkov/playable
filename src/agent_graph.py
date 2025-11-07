@@ -4,7 +4,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.agent_state import AgentState
 from src.llm_client import LLMClient
 from src.tools import FileOperations
-from src.custom_types import ToolUse, TextRaw
+from src.custom_types import ToolUse, TextRaw, ThinkingBlock
 from test_game import validate_game_in_workspace, validate_game_with_test_case, TEST_SCRIPT
 from src.vlm import (
     VLMClient,
@@ -22,7 +22,7 @@ from src.prompts import (
     PIXI_CDN_INSTRUCTIONS,
     ASSET_PACK_INSTRUCTIONS
 )
-from langfuse.decorators import observe, langfuse_context
+from langsmith import traceable
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ INTERACTIVE_MODE = True
 def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
     """Create the LangGraph agent workflow."""
     
-    @observe(name="llm_node")
+    @traceable(name="llm_node")
     async def llm_node(state: AgentState) -> dict:
         """Call the LLM with current state."""
         logger.info("=== LLM Node ===")
@@ -58,18 +58,6 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             logger.info("Adding asset pack context to system prompt")
             asset_instructions = ASSET_PACK_INSTRUCTIONS.format(asset_context=asset_context)
             system_prompt = system_prompt + "\n\n" + asset_instructions
-        
-        # Update Langfuse context with metadata and tags
-        langfuse_context.update_current_observation(
-            metadata={
-                "mode": mode,
-                "retry_count": retry_count,
-                "has_asset_context": bool(asset_context),
-                "message_count": len(state["messages"]),
-                "session_id": state.get("session_id")
-            },
-            tags=[mode, f"retry_{retry_count}"]
-        )
         
         # Get tools from file operations
         tools = file_ops.tools
@@ -99,6 +87,9 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
                     "id": item.id
                 })
                 logger.info(f"Tool call: {item.name}")
+            elif isinstance(item, ThinkingBlock):
+                logger.debug(f"Thinking: {item.thinking[:200]}...")
+                # Thinking blocks are not included in the message content
         
         # Create AI message
         ai_message = AIMessage(
@@ -112,7 +103,7 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             "_parsed_content": parsed_content
         }
     
-    @observe(name="tools_node")
+    @traceable(name="tools_node")
     async def tools_node(state: AgentState) -> dict:
         """Execute tool calls."""
         logger.info("=== Tools Node ===")
@@ -173,7 +164,7 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
                 "messages": [HumanMessage(content=FEEDBACK_CONTINUE_TASK)]
             }
     
-    @observe(name="test_node")
+    @traceable(name="test_node")
     async def test_node(state: AgentState) -> dict:
         """Test the generated game in a browser and validate with VLM."""
         logger.info("=== Test Node ===")

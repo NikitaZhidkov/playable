@@ -14,7 +14,7 @@ from datetime import datetime
 
 import dagger
 from langchain_core.messages import HumanMessage
-from langfuse.decorators import observe, langfuse_context
+from langsmith import traceable
 
 from src.containers import Workspace, PlaywrightContainer
 from src.tools import FileOperations
@@ -38,16 +38,18 @@ from src.asset_manager import (
 # Load environment variables
 load_dotenv()
 
-# Setup LangSmith tracing if API key is available
-if not os.getenv("LANGCHAIN_API_KEY") and os.getenv("LANGSMITH_API_KEY"):
-    os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
+# Validate LangSmith configuration
+if not os.getenv("LANGSMITH_API_KEY"):
+    raise ValueError("LANGSMITH_API_KEY not found in environment. Set it in .env file.")
 
-if os.getenv("LANGCHAIN_API_KEY"):
-    os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
-    os.environ.setdefault("LANGCHAIN_PROJECT", "playable-agent")
-    print("🔍 LangSmith tracing enabled")
-    print(f"   Project: {os.getenv('LANGCHAIN_PROJECT')}")
-    print()
+# Setup LangSmith tracing
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
+os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+os.environ.setdefault("LANGCHAIN_PROJECT", "playable-agent")
+
+print("🔍 LangSmith tracing enabled")
+print(f"   Project: {os.getenv('LANGCHAIN_PROJECT')}")
+print()
 
 # Setup logging
 logging.basicConfig(
@@ -231,26 +233,13 @@ async def build_feedback_context(session: Session, game_path: Path) -> str:
     return "\n".join(context_parts)
 
 
-@observe(name="new_game_workflow")
+@traceable(name="new_game_workflow")
 async def run_new_game_workflow(client: dagger.Client, task_description: str, selected_pack: str | None = None) -> Session:
     """Run the workflow for creating a new game."""
     logger.info("Starting new game workflow")
     
     # Create session with selected pack
     session = create_session(task_description, selected_pack=selected_pack)
-    
-    # Update Langfuse context with session metadata
-    langfuse_context.update_current_trace(
-        name="Create New Game",
-        user_id="agent",
-        session_id=session.session_id,
-        metadata={
-            "task_description": task_description,
-            "has_asset_pack": bool(selected_pack),
-            "asset_pack": selected_pack
-        },
-        tags=["new_game", "creation"]
-    )
     
     print()
     print(f"📋 Session ID: {session.session_id}")
@@ -390,22 +379,12 @@ Please create a complete, working pixi.js game. Make sure to use the correct Pix
         print(f"✅ To view your game, open {get_game_path(session.session_id)}/index.html in a browser")
         print()
         
-        # Update Langfuse trace with success outcome
-        langfuse_context.update_current_trace(
-            output={"status": session.status, "message": "Game created successfully"}
-        )
-        
         return session
         
     except KeyboardInterrupt:
         session.status = "interrupted"
         session.last_error = "Interrupted by user"
         print("\n\n⚠️  Interrupted by user")
-        
-        # Update Langfuse trace with interruption
-        langfuse_context.update_current_trace(
-            output={"status": "interrupted", "error": "Interrupted by user"}
-        )
         raise
     except Exception as e:
         session.status = "failed"
@@ -413,11 +392,6 @@ Please create a complete, working pixi.js game. Make sure to use the correct Pix
         logger.error(f"Error during execution: {e}", exc_info=True)
         print(f"\n❌ Error: {e}")
         print("Check logs for details.")
-        
-        # Update Langfuse trace with failure
-        langfuse_context.update_current_trace(
-            output={"status": "failed", "error": str(e)}
-        )
         raise
     finally:
         # Always save state (message history and graph state)
@@ -428,20 +402,11 @@ Please create a complete, working pixi.js game. Make sure to use the correct Pix
             save_session(session)
             logger.info(f"Session state saved: status={session.status}")
             logger.info(f"Saved {len(final_state['messages'])} messages to session history")
-            
-            # Add final metadata to trace
-            langfuse_context.update_current_trace(
-                metadata={
-                    "final_status": session.status,
-                    "message_count": len(final_state.get("messages", [])),
-                    "retry_count": final_state.get("retry_count", 0)
-                }
-            )
         except Exception as e:
             logger.error(f"Failed to save session state: {e}", exc_info=True)
 
 
-@observe(name="feedback_workflow")
+@traceable(name="feedback_workflow")
 async def run_feedback_workflow(
     client: dagger.Client, 
     session: Session, 
@@ -460,23 +425,6 @@ async def run_feedback_workflow(
     """
     logger.info(f"Starting feedback workflow for session {session.session_id}")
     logger.info(f"Use message history: {use_message_history}")
-    
-    # Update Langfuse context with session metadata
-    langfuse_context.update_current_trace(
-        name="Game Feedback Iteration",
-        user_id="agent",
-        session_id=session.session_id,
-        metadata={
-            "original_prompt": session.initial_prompt,
-            "feedback": feedback,
-            "use_message_history": use_message_history,
-            "continue_from_state": continue_from_state,
-            "has_asset_pack": bool(session.selected_pack),
-            "asset_pack": session.selected_pack,
-            "previous_status": session.status
-        },
-        tags=["feedback", "iteration"]
-    )
     
     game_path = get_game_path(session.session_id)
     
@@ -663,22 +611,12 @@ Please implement the requested changes. You have access to all the current game 
         print(f"✅ To view your game, open {get_game_path(session.session_id)}/index.html in a browser")
         print()
         
-        # Update Langfuse trace with success outcome
-        langfuse_context.update_current_trace(
-            output={"status": session.status, "message": "Game updated successfully"}
-        )
-        
         return session
         
     except KeyboardInterrupt:
         session.status = "interrupted"
         session.last_error = "Interrupted by user"
         print("\n\n⚠️  Interrupted by user")
-        
-        # Update Langfuse trace with interruption
-        langfuse_context.update_current_trace(
-            output={"status": "interrupted", "error": "Interrupted by user"}
-        )
         raise
     except Exception as e:
         session.status = "failed"
@@ -686,11 +624,6 @@ Please implement the requested changes. You have access to all the current game 
         logger.error(f"Error during execution: {e}", exc_info=True)
         print(f"\n❌ Error: {e}")
         print("Check logs for details.")
-        
-        # Update Langfuse trace with failure
-        langfuse_context.update_current_trace(
-            output={"status": "failed", "error": str(e)}
-        )
         raise
     finally:
         # Always save state (message history and graph state)
@@ -701,16 +634,6 @@ Please implement the requested changes. You have access to all the current game 
             save_session(session)
             logger.info(f"Session state saved: status={session.status}")
             logger.info(f"Saved {len(final_state['messages'])} messages to session history")
-            
-            # Add final metadata to trace
-            langfuse_context.update_current_trace(
-                metadata={
-                    "final_status": session.status,
-                    "message_count": len(final_state.get("messages", [])),
-                    "retry_count": final_state.get("retry_count", 0),
-                    "feedback_applied": feedback
-                }
-            )
         except Exception as e:
             logger.error(f"Failed to save session state: {e}", exc_info=True)
 

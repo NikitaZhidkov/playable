@@ -1,0 +1,16 @@
+{
+  "score": 25,
+  "distance": 25.3,
+  "isGameOver": false,
+  "carPosition": {
+    "x": 350,
+    "y": 500
+  },
+  "stones": [
+    {
+      "x": 450,
+      "y": 200
+    }
+  ],
+  "expectedOutput": "Early gameplay with black car positioned left of center, score showing 25, distance 25m, one stone visible in middle-upper area of road, game paused"
+}
