@@ -14,13 +14,25 @@ from datetime import datetime
 
 import dagger
 from langchain_core.messages import HumanMessage
-from langsmith import traceable
+import logfire
 
 from src.containers import Workspace, PlaywrightContainer
 from src.tools import FileOperations
 from src.llm_client import LLMClient
 from src.agent_graph import create_agent_graph
-from src.prompts import PIXI_CDN_INSTRUCTIONS, FEEDBACK_CONTEXT_TEMPLATE
+from src.prompts import (
+    PIXI_CDN_INSTRUCTIONS, 
+    FEEDBACK_CONTEXT_TEMPLATE,
+    GAME_DESIGNER_PROMPT,
+    GAME_DESIGNER_ASSET_PACK_INFO,
+    GAME_DESIGNER_NO_ASSETS,
+    GAME_DESIGNER_ASSET_INSTRUCTIONS_WITH_PACK,
+    GAME_DESIGNER_ASSET_INSTRUCTIONS_NO_PACK,
+    GAME_DESIGNER_SOUND_PACK_INFO,
+    GAME_DESIGNER_NO_SOUNDS,
+    GAME_DESIGNER_SOUND_INSTRUCTIONS_WITH_PACK,
+    GAME_DESIGNER_SOUND_INSTRUCTIONS_NO_PACK
+)
 from src.session import (
     Session,
     create_session,
@@ -32,23 +44,22 @@ from src.session import (
 )
 from src.asset_manager import (
     list_available_packs,
-    prepare_pack_for_workspace
+    prepare_pack_for_workspace,
+    parse_existing_descriptions
 )
 
 # Load environment variables
 load_dotenv()
 
-# Validate LangSmith configuration
-if not os.getenv("LANGSMITH_API_KEY"):
-    raise ValueError("LANGSMITH_API_KEY not found in environment. Set it in .env file.")
+# Initialize Logfire for LLM observability (version 4.14.2)
+# Configure Logfire - will fail immediately if configuration is invalid
+logfire.configure()
 
-# Setup LangSmith tracing
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
-os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
-os.environ.setdefault("LANGCHAIN_PROJECT", "playable-agent")
+# Instrument Anthropic SDK for automatic tracing of all API calls
+# This automatically wraps all Anthropic client calls with OpenTelemetry spans
+logfire.instrument_anthropic()
 
-print("🔍 LangSmith tracing enabled")
-print(f"   Project: {os.getenv('LANGCHAIN_PROJECT')}")
+print("🔍 Logfire observability enabled (v4.14.2)")
 print()
 
 # Setup logging
@@ -68,7 +79,25 @@ async def initialize_workspace(client: dagger.Client, context_dir: Path | None =
     context = None
     if context_dir and context_dir.exists():
         logger.info(f"Loading context from: {context_dir}")
-        context = client.host().directory(str(context_dir))
+        
+        # List files that exist on disk before loading
+        disk_files = list(context_dir.rglob("*"))
+        disk_file_count = len([f for f in disk_files if f.is_file()])
+        logger.info(f"Files on disk in {context_dir}: {disk_file_count} files")
+        
+        # Log sample files (first 10)
+        sample_files = [str(f.relative_to(context_dir)) for f in disk_files if f.is_file()][:10]
+        if sample_files:
+            logger.info(f"Sample files on disk: {sample_files}")
+        
+        # Load directory from host
+        # Use exclude=[] to ensure all files are loaded (don't use default git ignore behavior)
+        context = client.host().directory(str(context_dir), exclude=[])
+        
+        # Verify what Dagger sees in the directory - fail fast if there's an error
+        entries = await context.entries()
+        logger.info(f"Files loaded by Dagger: {len(entries)} entries")
+        logger.info(f"Dagger entries: {entries}")
     
     # Create workspace with Bun base image
     workspace = await Workspace.create(
@@ -81,6 +110,12 @@ async def initialize_workspace(client: dagger.Client, context_dir: Path | None =
         protected=[],  # No protected files for new projects
         allowed=[]  # Allow all files
     )
+    
+    # Verify files in workspace after creation
+    if context_dir:
+        workspace_files = await workspace.ls(".")
+        logger.info(f"Files in workspace after creation: {len(workspace_files)} entries")
+        logger.info(f"Workspace files: {workspace_files}")
     
     logger.info("Workspace initialized successfully")
     return workspace
@@ -233,7 +268,179 @@ async def build_feedback_context(session: Session, game_path: Path) -> str:
     return "\n".join(context_parts)
 
 
-@traceable(name="new_game_workflow")
+async def call_game_designer(
+    user_prompt: str,
+    selected_pack: str | None = None,
+    game_path: Path | None = None
+) -> str:
+    """
+    Call game designer LLM to transform user concept into detailed GDD.
+    
+    Args:
+        user_prompt: User's short game concept
+        selected_pack: Name of selected asset pack (if any)
+        game_path: Path to game directory (where assets are prepared)
+    
+    Returns:
+        Game design document from the LLM
+    """
+    logger.info("Calling game designer LLM to create GDD")
+    print("\n🎨 Game Designer is analyzing your concept...")
+    
+    # Build asset pack info section
+    asset_pack_info = ""
+    asset_instructions = ""
+    
+    if selected_pack and game_path:
+        # Get asset list from description.xml
+        source_pack_path = Path("assets") / selected_pack
+        xml_path = source_pack_path / "description.xml"
+        
+        if xml_path.exists():
+            descriptions = parse_existing_descriptions(xml_path)
+            asset_list_lines = []
+            
+            for filename, info in sorted(descriptions.items()):
+                # Get standard attributes
+                width = info.get('width', '0')
+                height = info.get('height', '0')
+                desc = info.get('description', '')
+                
+                # Start with basic info
+                line_parts = [f"- **{filename}** ({width}x{height}px)"]
+                
+                # Add description if available
+                if desc:
+                    line_parts.append(f": {desc}")
+                
+                # Add ALL other custom attributes (not just known ones)
+                # This includes human_description and any other custom tags
+                custom_attrs = []
+                for key, value in sorted(info.items()):
+                    # Skip the standard attributes we already handled
+                    if key not in ['width', 'height', 'description']:
+                        custom_attrs.append(f"{key}: {value}")
+                
+                # Append custom attributes
+                if custom_attrs:
+                    if desc:
+                        line_parts.append(" | ")
+                    else:
+                        line_parts.append(": ")
+                    line_parts.append(", ".join(custom_attrs))
+                
+                asset_list_lines.append("".join(line_parts))
+            
+            asset_list = "\n".join(asset_list_lines)
+            asset_pack_info = GAME_DESIGNER_ASSET_PACK_INFO.format(
+                pack_name=selected_pack,
+                asset_list=asset_list
+            )
+            asset_instructions = GAME_DESIGNER_ASSET_INSTRUCTIONS_WITH_PACK
+        else:
+            logger.warning(f"Description XML not found for pack {selected_pack}")
+            asset_pack_info = GAME_DESIGNER_NO_ASSETS
+            asset_instructions = GAME_DESIGNER_ASSET_INSTRUCTIONS_NO_PACK
+    else:
+        asset_pack_info = GAME_DESIGNER_NO_ASSETS
+        asset_instructions = GAME_DESIGNER_ASSET_INSTRUCTIONS_NO_PACK
+    
+    # Build sound pack info section
+    sound_pack_info = ""
+    sound_instructions = ""
+    
+    if selected_pack and game_path:
+        # Get sound list from description.xml
+        from src.asset_manager import parse_sound_descriptions
+        source_sound_path = Path("Sounds") / selected_pack
+        sound_xml_path = source_sound_path / "description.xml"
+        
+        if sound_xml_path.exists():
+            sound_descriptions = parse_sound_descriptions(sound_xml_path)
+            sound_list_lines = []
+            
+            for filename, info in sorted(sound_descriptions.items()):
+                # Get attributes
+                desc = info.get('description', '')
+                sound_type = info.get('type', 'unknown')
+                
+                # Start with basic info
+                line_parts = [f"- **{filename}** (Type: {sound_type})"]
+                
+                # Add description if available
+                if desc:
+                    line_parts.append(f": {desc}")
+                
+                # Add other custom attributes
+                custom_attrs = []
+                for key, value in sorted(info.items()):
+                    if key not in ['description', 'type']:
+                        custom_attrs.append(f"{key}: {value}")
+                
+                # Append custom attributes
+                if custom_attrs:
+                    if desc:
+                        line_parts.append(" | ")
+                    else:
+                        line_parts.append(": ")
+                    line_parts.append(", ".join(custom_attrs))
+                
+                sound_list_lines.append("".join(line_parts))
+            
+            sound_list = "\n".join(sound_list_lines)
+            sound_pack_info = GAME_DESIGNER_SOUND_PACK_INFO.format(
+                pack_name=selected_pack,
+                sound_list=sound_list
+            )
+            sound_instructions = GAME_DESIGNER_SOUND_INSTRUCTIONS_WITH_PACK
+        else:
+            logger.info(f"No sound description XML found for pack {selected_pack} (optional)")
+            sound_pack_info = GAME_DESIGNER_NO_SOUNDS
+            sound_instructions = GAME_DESIGNER_SOUND_INSTRUCTIONS_NO_PACK
+    else:
+        sound_pack_info = GAME_DESIGNER_NO_SOUNDS
+        sound_instructions = GAME_DESIGNER_SOUND_INSTRUCTIONS_NO_PACK
+    
+    # Format the prompt with asset and sound info
+    formatted_prompt = GAME_DESIGNER_PROMPT.format(
+        asset_pack_info=asset_pack_info,
+        asset_instructions=asset_instructions,
+        sound_instructions=sound_instructions,
+        user_prompt=user_prompt
+    )
+    
+    # Call LLM (no tools needed for game designer)
+    llm_client = LLMClient()
+    
+    with logfire.span(
+        "game_designer_llm_call",
+        user_prompt=user_prompt[:100],
+        has_asset_pack=bool(selected_pack)
+    ):
+        response = llm_client.call(
+            messages=[{"role": "user", "content": user_prompt}],
+            tools=[],
+            system=formatted_prompt
+        )
+        
+        # Parse response - extract text only
+        parsed_content = llm_client.parse_anthropic_response(response)
+        
+        # Extract text from response
+        from src.custom_types import TextRaw
+        text_parts = []
+        for item in parsed_content:
+            if isinstance(item, TextRaw):
+                text_parts.append(item.text)
+        
+        gdd_output = "\n".join(text_parts)
+    
+    logger.info(f"Game designer produced GDD ({len(gdd_output)} characters)")
+    print("✅ Game Design Document created\n")
+    
+    return gdd_output
+
+
 async def run_new_game_workflow(client: dagger.Client, task_description: str, selected_pack: str | None = None) -> Session:
     """Run the workflow for creating a new game."""
     logger.info("Starting new game workflow")
@@ -251,6 +458,7 @@ async def run_new_game_workflow(client: dagger.Client, task_description: str, se
     
     # Prepare asset pack if selected (before workspace initialization)
     asset_context = None
+    sound_context = None
     game_path = get_game_path(session.session_id)
     
     if selected_pack:
@@ -272,7 +480,46 @@ async def run_new_game_workflow(client: dagger.Client, task_description: str, se
         else:
             logger.warning("Failed to prepare asset pack")
             print("⚠️  Warning: Could not prepare asset pack")
+        
+        # Prepare sound pack if available (same pack name)
+        from src.asset_manager import prepare_sound_pack_for_workspace
+        logger.info(f"Checking for sound pack: {selected_pack}")
+        print(f"🔊 Checking for sound pack '{selected_pack}'...")
+        
+        sounds_dir = game_path / "sounds"
+        sound_context = prepare_sound_pack_for_workspace(
+            pack_name=selected_pack,
+            workspace_sounds_dir=sounds_dir
+        )
+        
+        if sound_context:
+            logger.info("Sound pack prepared successfully")
+            print("✓ Sound pack ready")
+        else:
+            logger.info("No sound pack found (this is optional)")
+            print("ℹ️  No sound pack available")
         print()
+    
+    # Call game designer LLM to create detailed GDD
+    game_designer_output = await call_game_designer(
+        user_prompt=task_description,
+        selected_pack=selected_pack,
+        game_path=game_path if selected_pack else None
+    )
+    
+    # Save GDD to session
+    session.game_designer_output = game_designer_output
+    save_session(session)
+    
+    # Also save GDD to file for reference
+    gdd_path = get_session_path(session.session_id) / "agent" / "game_design_document.md"
+    gdd_path.parent.mkdir(parents=True, exist_ok=True)
+    gdd_path.write_text(game_designer_output, encoding='utf-8')
+    logger.info(f"Saved GDD to {gdd_path}")
+    
+    # Print path (already relative if using default base_path="games")
+    print(f"📄 Game Design Document saved to: {gdd_path}")
+    print()
     
     # Initialize workspace with game path (includes assets if they were prepared)
     workspace = await initialize_workspace(client, context_dir=game_path if selected_pack else None)
@@ -287,11 +534,16 @@ async def run_new_game_workflow(client: dagger.Client, task_description: str, se
     # Create agent graph
     agent = create_agent_graph(llm_client, file_ops)
     
-    # Initialize state
+    # Initialize state with GDD as the task description
+    # NOTE: The game designer output is embedded in this initial prompt but NOT stored
+    # in agent message history separately. The agent only sees "implement this GDD"
+    # as a single user message. This keeps the agent history clean.
     initial_prompt = f"""TASK:
-{task_description}
+Implement the following game design:
 
-Please create a complete, working pixi.js game. Make sure to use the correct PixiJS CDN link specified above in your HTML file."""
+{game_designer_output}
+
+Please create a complete, working pixi.js game based on this detailed game design document. Make sure to use the correct PixiJS CDN link specified above in your HTML file."""
 
     initial_state = {
         "messages": [
@@ -306,7 +558,8 @@ Please create a complete, working pixi.js game. Make sure to use the correct Pix
         "session_id": session.session_id,
         "is_feedback_mode": False,
         "original_prompt": task_description,  # In creation mode, original = current task
-        "asset_context": asset_context  # Asset pack context for prompt injection
+        "asset_context": asset_context,  # Asset pack context for prompt injection
+        "sound_context": sound_context  # Sound pack context for prompt injection
     }
     
     logger.info("Starting agent execution...")
@@ -406,7 +659,6 @@ Please create a complete, working pixi.js game. Make sure to use the correct Pix
             logger.error(f"Failed to save session state: {e}", exc_info=True)
 
 
-@traceable(name="feedback_workflow")
 async def run_feedback_workflow(
     client: dagger.Client, 
     session: Session, 
@@ -441,6 +693,7 @@ async def run_feedback_workflow(
     
     # Check and update asset pack if needed
     asset_context = None
+    sound_context = None
     if session.selected_pack:
         logger.info(f"Checking asset pack: {session.selected_pack}")
         print(f"🎨 Checking asset pack '{session.selected_pack}'...")
@@ -460,6 +713,24 @@ async def run_feedback_workflow(
         else:
             logger.warning("Failed to validate/update asset pack")
             print("⚠️  Warning: Could not validate asset pack")
+        
+        # Check for sound pack
+        from src.asset_manager import prepare_sound_pack_for_workspace
+        logger.info(f"Checking for sound pack: {session.selected_pack}")
+        print(f"🔊 Checking for sound pack '{session.selected_pack}'...")
+        
+        sounds_dir = game_path / "sounds"
+        sound_context = prepare_sound_pack_for_workspace(
+            pack_name=session.selected_pack,
+            workspace_sounds_dir=sounds_dir
+        )
+        
+        if sound_context:
+            logger.info("Sound pack validated/updated successfully")
+            print("✓ Sound pack ready")
+        else:
+            logger.info("No sound pack found (this is optional)")
+            print("ℹ️  No sound pack available")
         print()
     
     # Build context with existing game files
@@ -526,7 +797,8 @@ Please implement the requested changes. You have access to all the current game 
             "session_id": session.session_id,
             "is_feedback_mode": True,
             "original_prompt": saved_state.get("original_prompt", session.initial_prompt),
-            "asset_context": asset_context
+            "asset_context": asset_context,
+            "sound_context": sound_context
         }
         print("🔄 Restoring from previous state...")
         print(f"   Previous retry count: {saved_state.get('retry_count', 0)}")
@@ -543,7 +815,8 @@ Please implement the requested changes. You have access to all the current game 
             "session_id": session.session_id,
             "is_feedback_mode": True,
             "original_prompt": session.initial_prompt,
-            "asset_context": asset_context
+            "asset_context": asset_context,
+            "sound_context": sound_context
         }
     
     logger.info("Starting agent execution in feedback mode...")
@@ -568,7 +841,7 @@ Please implement the requested changes. You have access to all the current game 
         save_session(session)
         
         # Run the agent
-        config = {"recursion_limit": 100}
+        config = {"recursion_limit": 1000}
         final_state = await agent.ainvoke(initial_state, config=config)
         
         # Check if max retries reached
@@ -638,25 +911,47 @@ Please implement the requested changes. You have access to all the current game 
             logger.error(f"Failed to save session state: {e}", exc_info=True)
 
 
-async def save_game_files(workspace: Workspace, session: Session, is_new: bool = False, feedback: str | None = None):
+async def save_game_files(workspace: Workspace, session: Session, is_new: bool = False, feedback: str | None = None, base_path: Path = Path("games")):
     """Save game files from workspace to session folder."""
-    game_path = get_game_path(session.session_id)
-    session_path = get_session_path(session.session_id)
+    game_path = get_game_path(session.session_id, base_path=base_path)
+    session_path = get_session_path(session.session_id, base_path=base_path)
     
     logger.info(f"Saving game files to {game_path}")
+    
+    # Log what's in workspace before export - fail fast if there's an error
+    workspace_files = await workspace.ls(".")
+    logger.info(f"Files in workspace before export: {len(workspace_files)} entries")
+    logger.info(f"Workspace files: {workspace_files}")
     
     if not is_new:
         # For feedback mode, remove old game files but keep .git and debug
         logger.info("Removing old game files (keeping .git and debug)")
+        files_before_cleanup = list(game_path.iterdir())
+        logger.info(f"Files before cleanup: {[f.name for f in files_before_cleanup]}")
+        
         for item in game_path.iterdir():
             if item.name not in ['.git', 'debug']:
                 if item.is_dir():
                     shutil.rmtree(item)
+                    logger.info(f"Removed directory: {item.name}")
                 else:
                     item.unlink()
+                    logger.info(f"Removed file: {item.name}")
+        
+        files_after_cleanup = list(game_path.iterdir())
+        logger.info(f"Files after cleanup: {[f.name for f in files_after_cleanup]}")
     
     # Export workspace to game folder
+    logger.info(f"Exporting workspace to {game_path}")
     await workspace.container().directory(".").export(str(game_path))
+    logger.info("Export completed")
+    
+    # Verify files after export
+    files_after_export = list(game_path.iterdir())
+    logger.info(f"Files after export: {[f.name for f in files_after_export]}")
+    all_files = list(game_path.rglob("*"))
+    file_count = len([f for f in all_files if f.is_file()])
+    logger.info(f"Total files after export: {file_count} files")
     
     # Initialize or commit to git
     git_folder = game_path / ".git"
@@ -671,7 +966,7 @@ async def save_game_files(workspace: Workspace, session: Session, is_new: bool =
     if feedback:
         session.add_iteration(feedback, timestamp)
     session.last_modified = timestamp
-    save_session(session)
+    save_session(session, base_path=base_path)
     
     logger.info(f"Game files saved successfully")
 
@@ -865,98 +1160,101 @@ async def main_loop():
     """Main interactive loop."""
     current_session: Session | None = None
     
-    # Create a single Dagger connection for the entire session
-    # This avoids waiting for container cleanup after each workflow
-    async with dagger.Connection() as client:
-        logger.info("Dagger connection established for session")
-        
-        while True:
-            try:
-                choice = show_menu()
+    # Note: We create a fresh Dagger connection for each workflow to avoid
+    # directory caching issues. Dagger caches host directories by path, which
+    # causes stale file data when loading a directory that was modified since
+    # the first load. Creating a new client ensures we always see latest files.
+    # The performance tradeoff is acceptable for correctness.
+    
+    while True:
+        try:
+            choice = show_menu()
+            
+            if choice == 'e':
+                print("\n👋 Goodbye!")
+                break
+            
+            elif choice == 'n':
+                # Create new game
+                print()
+                print("What game would you like to create?")
+                print("Example: 'Create a simple platformer game with a character that can jump'")
+                print()
+                task_description = input("Your task: ").strip()
                 
-                if choice == 'e':
-                    print("\n👋 Goodbye!")
-                    break
+                if not task_description:
+                    print("❌ No task provided.")
+                    continue
                 
-                elif choice == 'n':
-                    # Create new game
-                    print()
-                    print("What game would you like to create?")
-                    print("Example: 'Create a simple platformer game with a character that can jump'")
-                    print()
-                    task_description = input("Your task: ").strip()
-                    
-                    if not task_description:
-                        print("❌ No task provided.")
-                        continue
-                    
-                    # Select asset pack
-                    selected_pack = select_asset_pack()
-                    
-                    # Reuse existing client connection
+                # Select asset pack
+                selected_pack = select_asset_pack()
+                
+                # Create fresh client for this workflow
+                async with dagger.Connection() as client:
                     current_session = await run_new_game_workflow(client, task_description, selected_pack)
-                    
-                    # Ask if user wants to continue working
-                    print()
-                    continue_work = input("Continue working on this game? (y/n): ").strip().lower()
-                    if continue_work != 'y':
-                        current_session = None
                 
-                elif choice == 'c':
-                    # Continue existing game
+                # Ask if user wants to continue working
+                print()
+                continue_work = input("Continue working on this game? (y/n): ").strip().lower()
+                if continue_work != 'y':
+                    current_session = None
+            
+            elif choice == 'c':
+                # Continue existing game
+                if current_session is None:
+                    current_session = select_session()
                     if current_session is None:
-                        current_session = select_session()
-                        if current_session is None:
-                            continue
-                    
-                    # Check session status and handle recovery if needed
-                    continue_from_state = False
-                    
-                    if current_session.status in ["failed", "interrupted", "max_retries_reached", "in_progress"]:
-                        # Session needs recovery
-                        should_proceed, continue_from_state = ask_continue_or_fresh(current_session)
-                        if not should_proceed:
-                            current_session = None
-                            continue
-                    
-                    # Get feedback
-                    print()
-                    print(f"Current game: {current_session.initial_prompt[:60]}...")
-                    print()
-                    
-                    # Ask about message history (unless restoring from state)
-                    use_history = True  # Default
-                    if not continue_from_state:
-                        previous_messages = current_session.get_langchain_messages()
-                        if previous_messages:
-                            print(f"📝 Found {len(previous_messages)} messages from previous iterations.")
-                            print()
-                            print("Message history options:")
-                            print("  (c) Continue with message history (agent remembers previous conversation)")
-                            print("  (f) Start fresh (agent reads files from scratch, no memory of previous iterations)")
-                            print()
-                            history_choice = input("Your choice [c/f] (default: c): ").strip().lower()
-                            
-                            if history_choice == 'f':
-                                use_history = False
-                                print("🔄 Will start fresh without message history")
-                            else:
-                                print("💬 Will continue with message history")
-                            print()
-                    else:
-                        # When restoring from state, always use message history
-                        use_history = True
-                    
-                    print("What would you like to change or add?")
-                    print("Example: 'Add a score counter in the top right corner'")
-                    print()
-                    feedback = input("Your feedback: ").strip()
-                    
-                    if not feedback:
-                        print("❌ No feedback provided.")
                         continue
-                    
-                    # Reuse existing client connection
+                
+                # Check session status and handle recovery if needed
+                continue_from_state = False
+                
+                if current_session.status in ["failed", "interrupted", "max_retries_reached", "in_progress"]:
+                    # Session needs recovery
+                    should_proceed, continue_from_state = ask_continue_or_fresh(current_session)
+                    if not should_proceed:
+                        current_session = None
+                        continue
+                
+                # Get feedback
+                print()
+                print(f"Current game: {current_session.initial_prompt[:60]}...")
+                print()
+                
+                # Ask about message history (unless restoring from state)
+                use_history = True  # Default
+                if not continue_from_state:
+                    previous_messages = current_session.get_langchain_messages()
+                    if previous_messages:
+                        print(f"📝 Found {len(previous_messages)} messages from previous iterations.")
+                        print()
+                        print("Message history options:")
+                        print("  (c) Continue with message history (agent remembers previous conversation)")
+                        print("  (f) Start fresh (agent reads files from scratch, no memory of previous iterations)")
+                        print()
+                        history_choice = input("Your choice [c/f] (default: c): ").strip().lower()
+                        
+                        if history_choice == 'f':
+                            use_history = False
+                            print("🔄 Will start fresh without message history")
+                        else:
+                            print("💬 Will continue with message history")
+                        print()
+                else:
+                    # When restoring from state, always use message history
+                    use_history = True
+                
+                print("What would you like to change or add?")
+                print("Example: 'Add a score counter in the top right corner'")
+                print()
+                feedback = input("Your feedback: ").strip()
+                
+                if not feedback:
+                    print("❌ No feedback provided.")
+                    continue
+                
+                # Create fresh client for this workflow
+                async with dagger.Connection() as client:
                     current_session = await run_feedback_workflow(
                         client, 
                         current_session, 
@@ -964,25 +1262,25 @@ async def main_loop():
                         use_message_history=use_history,
                         continue_from_state=continue_from_state
                     )
-                    
-                    # Ask if user wants to continue working
-                    print()
-                    continue_work = input("Continue working on this game? (y/n): ").strip().lower()
-                    if continue_work != 'y':
-                        current_session = None
                 
-                else:
-                    print(f"❌ Invalid choice: {choice}")
-                
-            except KeyboardInterrupt:
-                print("\n\n⚠️  Interrupted by user")
-                print("Returning to menu...")
-                continue
-            except Exception as e:
-                logger.error(f"Error in main loop: {e}", exc_info=True)
-                print(f"\n❌ Error: {e}")
-                print("Returning to menu...")
-                continue
+                # Ask if user wants to continue working
+                print()
+                continue_work = input("Continue working on this game? (y/n): ").strip().lower()
+                if continue_work != 'y':
+                    current_session = None
+            
+            else:
+                print(f"❌ Invalid choice: {choice}")
+            
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Interrupted by user")
+            print("Returning to menu...")
+            continue
+        except Exception as e:
+            logger.error(f"Error in main loop: {e}", exc_info=True)
+            print(f"\n❌ Error: {e}")
+            print("Returning to menu...")
+            continue
 
 
 async def main():

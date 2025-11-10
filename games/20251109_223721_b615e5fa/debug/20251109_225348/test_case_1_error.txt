@@ -1,0 +1,25 @@
+Test Case Failure Report
+========================
+
+Test Case: test_case_1
+Timestamp: 2025-11-09 22:53:59
+
+Expected Output:
+Blue car centered on curved track with white lane markings, SPEED meter (top-left) showing 40/60, two oil spills visible on different lanes, static paused state with car stationary
+
+Actual Output (VLM Observation):
+N/A - test case loading error
+
+Error Message:
+test_case_1: Failed to load page or test case: page.evaluate: TypeError: tutorialText.updateText is not a function
+    at window.loadTestCase (file:///app/game.js:741:22)
+    at eval (eval at evaluate (:234:30), <anonymous>:2:24)
+    at UtilityScript.evaluate (<anonymous>:236:17)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+
+Errors:
+Failed to load page or test case: page.evaluate: TypeError: tutorialText.updateText is not a function
+    at window.loadTestCase (file:///app/game.js:741:22)
+    at eval (eval at evaluate (:234:30), <anonymous>:2:24)
+    at UtilityScript.evaluate (<anonymous>:236:17)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)

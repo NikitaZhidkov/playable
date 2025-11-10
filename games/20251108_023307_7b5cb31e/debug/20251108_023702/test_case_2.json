@@ -1,0 +1,14 @@
+{
+  "gameState": "tutorial", 
+  "playerPosition": {
+    "x": 100,
+    "y": 680
+  },
+  "currentLane": 0,
+  "gameSpeed": 120,
+  "distanceTraveled": 25,
+  "gameTime": 2000,
+  "isOilHit": false,
+  "tutorialStep": 2,
+  "expectedOutput": "Tutorial step 2 with 'Avoid the oil!' text, red car in left lane, yellow arrow pointing down towards the first oil spill (positioned above it), speed shows 120, distance shows 3%, oil spills visible on track"
+}

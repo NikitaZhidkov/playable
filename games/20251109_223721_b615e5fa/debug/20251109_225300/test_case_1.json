@@ -1,0 +1,18 @@
+{
+  "gameState": "tutorial",
+  "isPaused": true,
+  "currentDistance": 0,
+  "currentSpeed": 40,
+  "targetLane": 2,
+  "isOilSlowed": false,
+  "oilSlowEndTime": 0,
+  "tutorialStep": 0,
+  "gameStartTime": 0,
+  "isMuted": false,
+  "musicStarted": false,
+  "oilSpillCount": 2,
+  "playerPosition": {"x": 207, "y": 586},
+  "speedMeterPercent": 0.67,
+  "distanceMeterPercent": 0,
+  "expectedOutput": "Blue car centered on curved track with white lane markings, 'Drag to steer! Avoid oil spills!' text visible, SPEED meter (top-left) showing 40/60, DISTANCE meter (top-right) showing 0/800, two oil spills on different lanes, static paused state"
+}

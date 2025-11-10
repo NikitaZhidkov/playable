@@ -1,0 +1,21 @@
+{
+  "score": 40,
+  "playerPosition": {
+    "x": 340,
+    "y": 180
+  },
+  "playerVelocity": {
+    "x": 0,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": true},
+    {"collected": true},
+    {"collected": true},
+    {"collected": true}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Player at position (340, 180) on highest brown platform (at x=300, y=200), score showing 40 (maximum), all 4 golden stars collected and invisible, game completion state with all collectibles gathered"
+}

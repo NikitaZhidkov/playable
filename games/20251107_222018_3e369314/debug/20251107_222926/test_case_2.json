@@ -1,0 +1,21 @@
+{
+  "score": 10,
+  "playerPosition": {
+    "x": 250,
+    "y": 430
+  },
+  "playerVelocity": {
+    "x": 2,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": true},
+    {"collected": false},
+    {"collected": false},
+    {"collected": false}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Player at position (250, 430) on first brown platform, score showing 10, first golden star collected (invisible), remaining 3 stars still visible rotating on other platforms, 'TEST CASE LOADED - TAP TO START!' message visible"
+}

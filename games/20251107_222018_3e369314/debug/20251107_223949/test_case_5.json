@@ -1,0 +1,21 @@
+{
+  "score": 40,
+  "playerPosition": {
+    "x": 100,
+    "y": 480
+  },
+  "playerVelocity": {
+    "x": 0,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": true},
+    {"collected": true},
+    {"collected": true},
+    {"collected": true}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Player at starting position (100, 480) on green ground, score showing 40 (maximum possible score), fewer than 4 golden stars visible (some collected), 'TEST CASE LOADED - TAP TO START!' message visible, victory condition achieved"
+}

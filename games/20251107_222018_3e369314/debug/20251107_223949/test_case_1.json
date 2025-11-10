@@ -1,0 +1,21 @@
+{
+  "score": 0,
+  "playerPosition": {
+    "x": 100,
+    "y": 480
+  },
+  "playerVelocity": {
+    "x": 0,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": false},
+    {"collected": false},
+    {"collected": false},
+    {"collected": false}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Game start state with blue player character on the green ground at bottom of screen (position may vary, expected around x=100), score showing 0, all 4 golden stars visible on brown platforms, test status message visible showing position, green ground and brown platforms visible"
+}

@@ -1,0 +1,13 @@
+{
+  "gameState": "play",
+  "playerPosition": {
+    "x": 300,
+    "y": 680
+  },
+  "currentLane": 2,
+  "gameSpeed": 140,
+  "distanceTraveled": 300,
+  "gameTime": 8000,
+  "isOilHit": false,
+  "expectedOutput": "Active gameplay with car in right lane, speed shows 140 (increased from base), distance shows 37% (300/800), no tutorial overlay visible, UI shows white speed text indicating normal state, oil spills positioned on track, background and track show movement"
+}

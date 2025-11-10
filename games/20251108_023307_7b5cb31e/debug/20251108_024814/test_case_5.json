@@ -1,0 +1,14 @@
+{
+  "gameState": "endcard",
+  "playerPosition": {
+    "x": 200,
+    "y": 680
+  },
+  "currentLane": 1,
+  "gameSpeed": 150,
+  "distanceTraveled": 800,
+  "gameTime": 18000,
+  "isOilHit": false,
+  "won": true,
+  "expectedOutput": "End card screen with 'Racing Challenge' title, 'Great Job!' message in green, three feature bullet points ('Race through challenging tracks!', 'Customize your car!', 'Compete with friends!'), 5 golden stars, large green 'INSTALL NOW' CTA button, dark overlay covering game, distance shows 100% completion"
+}

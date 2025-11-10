@@ -1,19 +1,19 @@
 <pack name="Racing Pack">
-  <asset name="car_black_1.png" width="71" height="131" description="Asset: car_black_1"/>
-  <asset name="car_blue_2.png" width="71" height="116" description="Asset: car_blue_2"/>
-  <asset name="car_green_3.png" width="70" height="131" description="Asset: car_green_3"/>
-  <asset name="car_red_4.png" width="70" height="131" description="Asset: car_red_4"/>
-  <asset name="car_yellow_5.png" width="70" height="121" description="Asset: car_yellow_5"/>
-  <asset name="land_sand12.png" width="128" height="128" description="Asset: land_sand12"/>
-  <asset name="oil.png" width="109" height="95" description="Asset: oil"/>
-  <asset name="road_asphalt03.png" width="128" height="128" description="Asset: road_asphalt03"/>
-  <asset name="road_asphalt04.png" width="128" height="128" description="Asset: road_asphalt04"/>
-  <asset name="road_asphalt05.png" width="128" height="128" description="Asset: road_asphalt05"/>
-  <asset name="road_asphalt21.png" width="128" height="128" description="Asset: road_asphalt21"/>
-  <asset name="road_asphalt22.png" width="128" height="128" description="Asset: road_asphalt22"/>
-  <asset name="road_asphalt23.png" width="128" height="128" description="Asset: road_asphalt23"/>
-  <asset name="road_asphalt24.png" width="128" height="128" description="Asset: road_asphalt24"/>
-  <asset name="road_asphalt25.png" width="128" height="128" description="Asset: road_asphalt25"/>
-  <asset name="road_asphalt40.png" width="128" height="128" description="Asset: road_asphalt40"/>
-  <asset name="rock1.png" width="89" height="72" description="Asset: rock1"/>
+  <asset name="car_black_1.png" width="71" height="131" description="Asset: car_black_1" human_description="Dark racing car, top-down view."/>
+  <asset name="car_blue_2.png" width="71" height="116" description="Asset: car_blue_2" human_description="Blue racing car, top-down view."/>
+  <asset name="car_green_3.png" width="70" height="131" description="Asset: car_green_3" human_description="Green racing car, top-down view."/>
+  <asset name="car_red_4.png" width="70" height="131" description="Asset: car_red_4" human_description="Red racing car, top-down view."/>
+  <asset name="car_yellow_5.png" width="70" height="121" description="Asset: car_yellow_5" human_description="Yellow racing car, top-down view."/>
+  <asset name="land_sand12.png" width="128" height="128" description="Asset: land_sand12" human_description="Sand terrain, solid color."/>
+  <asset name="oil.png" width="109" height="95" description="Asset: oil" human_description="Gray oil spill on green grass, irregular blob shape."/>
+  <asset name="road_asphalt03.png" width="128" height="128" description="Asset: road_asphalt03" human_description="Road turn from right to down"/>
+  <asset name="road_asphalt04.png" width="128" height="128" description="Asset: road_asphalt04" human_description="Straight road with orange and white striped edge on the top, likely a border or segment."/>
+  <asset name="road_asphalt05.png" width="128" height="128" description="Asset: road_asphalt05" human_description="Road turn from left to down"/>
+  <asset name="road_asphalt21.png" width="128" height="128" description="Asset: road_asphalt21" human_description="Straight road with orange and white striped edge on the left, likely a border or segment."/>
+  <asset name="road_asphalt22.png" width="128" height="128" description="Asset: road_asphalt22" human_description="Road without any stripes and borders, just a solid color."/>
+  <asset name="road_asphalt23.png" width="128" height="128" description="Asset: road_asphalt23" human_description="Straight road with orange and white striped edge on the right, likely a border or segment."/>
+  <asset name="road_asphalt24.png" width="128" height="128" description="Asset: road_asphalt24" human_description="Road turn from top to right."/>
+  <asset name="road_asphalt25.png" width="128" height="128" description="Asset: road_asphalt25" human_description="Road turn from top to left."/>
+  <asset name="road_asphalt40.png" width="128" height="128" description="Asset: road_asphalt40" human_description="Straight road with orange and white striped edge on the down side, likely a border or segment."/>
+  <asset name="rock1.png" width="89" height="72" description="Asset: rock1" human_description="Brown rock, irregular shape, possibly a marker or obstacle."/>
 </pack>

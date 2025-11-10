@@ -20,4 +20,5 @@ class AgentState(MessagesState):
     is_feedback_mode: bool  # Whether we're in feedback mode or creation mode
     original_prompt: str  # Original game creation prompt (used in feedback mode for VLM context)
     asset_context: str  # Asset pack context for prompt injection (optional)
+    sound_context: str  # Sound pack context for prompt injection (optional)
 

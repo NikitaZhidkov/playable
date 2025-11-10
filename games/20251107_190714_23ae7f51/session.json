@@ -1,0 +1,13 @@
+{
+  "session_id": "20251107_190714_23ae7f51",
+  "initial_prompt": "Test game",
+  "created_at": "2025-11-07T19:07:14.355395",
+  "last_modified": "2025-11-07T19:07:14.721433",
+  "iterations": [],
+  "message_history": [],
+  "selected_pack": null,
+  "status": "in_progress",
+  "git_branch": null,
+  "graph_state": {},
+  "last_error": null
+}

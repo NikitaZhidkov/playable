@@ -1,0 +1,21 @@
+{
+  "score": 20,
+  "playerPosition": {
+    "x": 460,
+    "y": 330
+  },
+  "playerVelocity": {
+    "x": 0,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": false},
+    {"collected": false},
+    {"collected": false},
+    {"collected": false}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Player at position (460, 330) on a brown platform, score showing 20, all 4 golden stars visible on their respective platforms, 'TEST CASE LOADED - TAP TO START!' message visible, mid-game state"
+}

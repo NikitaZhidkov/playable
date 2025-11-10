@@ -1,0 +1,4 @@
+<pack name="Racing Pack">
+  <sound name="background.mp3" description="Upbeat racing game background music with energetic tempo, suitable for fast-paced racing gameplay" duration="200 sec" type="background_music"/>
+</pack>
+

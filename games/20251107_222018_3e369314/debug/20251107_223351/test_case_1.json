@@ -1,0 +1,21 @@
+{
+  "score": 0,
+  "playerPosition": {
+    "x": 100,
+    "y": 480
+  },
+  "playerVelocity": {
+    "x": 0,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": false},
+    {"collected": false},
+    {"collected": false},
+    {"collected": false}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Game start state with blue player character at position (100, 480) on the green ground, score showing 0, all 4 golden stars visible on brown platforms, 'TEST CASE LOADED - TAP TO START!' message visible, green ground and brown platforms visible"
+}

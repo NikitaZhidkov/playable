@@ -1,0 +1,18 @@
+{
+  "gameState": "play",
+  "isPaused": true,
+  "currentDistance": 100,
+  "currentSpeed": 45,
+  "targetLane": 1,
+  "isOilSlowed": false,
+  "oilSlowEndTime": 0,
+  "tutorialStep": 2,
+  "gameStartTime": 1000,
+  "isMuted": false,
+  "musicStarted": true,
+  "oilSpillCount": 1,
+  "playerPosition": {"x": 127, "y": 586},
+  "speedMeterPercent": 0.75,
+  "distanceMeterPercent": 0.125,
+  "expectedOutput": "Blue car positioned in lane 1 (left side of track), SPEED meter with green bar at top-left showing 45/60, DISTANCE meter with blue bar at top-right showing 100/800, one dark oil spill visible on track right side, game paused"
+}

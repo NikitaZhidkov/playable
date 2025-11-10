@@ -1,0 +1,18 @@
+{
+  "gameState": "play",
+  "isPaused": false,
+  "currentDistance": 100,
+  "currentSpeed": 45,
+  "targetLane": 1,
+  "isOilSlowed": false,
+  "oilSlowEndTime": 0,
+  "tutorialStep": 2,
+  "gameStartTime": 1000,
+  "isMuted": false,
+  "musicStarted": true,
+  "oilSpillCount": 1,
+  "playerPosition": {"x": 167, "y": 586},
+  "speedMeterPercent": 0.75,
+  "distanceMeterPercent": 0.125,
+  "expectedOutput": "Car moved to lane 1 (left of center), speed increased to 45 px/s showing 75% on speed meter, distance meter shows 12.5% progress (100/800), one oil spill visible on track, game actively running"
+}

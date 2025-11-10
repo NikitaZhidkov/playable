@@ -122,6 +122,107 @@ You MUST create 1-5 test cases to validate different game states. Test cases hel
 Test cases are stored at the ROOT level (same directory as index.html).
 """
 
+# Configuration file requirements for game creation
+CONFIG_FILE_CREATE_REQUIREMENTS = """Game Configuration File Requirements:
+You MUST create a config.json file that exposes tunable gameplay parameters for easy adjustment without code changes.
+
+Purpose:
+- Allow users to tweak game mechanics after the game is created
+- Enable rapid iteration on game feel and balance
+- Provide a clear interface for adjusting gameplay parameters
+
+1. Create config.json at the ROOT level (same directory as index.html) with ALL tunable gameplay parameters:
+   - Movement parameters (speed, acceleration, rotation speed, drag, friction)
+   - Physics parameters (gravity, jump force, collision sizes, bounce factors)
+   - Timing parameters (spawn intervals, cooldowns, animation durations)
+   - Difficulty parameters (enemy speed, damage values, score multipliers)
+   - Visual parameters (particle counts, trail lengths, animation speeds)
+   - Game rules (win conditions, lose conditions, time limits, lives)
+   - Any other parameters that affect how the game feels or plays
+
+2. Structure Example (adapt to your specific game):
+{{
+  "movement": {{
+    "speed": 5,
+    "rotationSpeed": 0.1,
+    "acceleration": 0.5
+  }},
+  "physics": {{
+    "gravity": 0.5,
+    "jumpForce": 12
+  }},
+  "gameplay": {{
+    "enemySpawnInterval": 2000,
+    "maxEnemies": 5,
+    "scorePerCollect": 10
+  }},
+  "difficulty": {{
+    "startingLives": 3,
+    "timeLimit": 60
+  }}
+}}
+
+3. Implementation Requirements:
+   - Load config.json at game initialization (before game loop starts)
+   - Use loaded values throughout your game code instead of hardcoding
+   - Add comments in your code indicating where config values are used
+   - If config loading fails, show error message in console
+
+4. Loading Pattern (add to your game.js):
+```javascript
+let config = null;
+
+// Load configuration
+async function loadConfig() {{
+  const response = await fetch('config.json');
+  config = await response.json();
+}}
+
+// Initialize game after config is loaded
+loadConfig().then(() => {{
+  // Use config.movement.speed, config.physics.gravity, etc.
+  startGame();
+}});
+```
+
+5. Guidelines for Parameters:
+   - Be specific: not "speed" but "playerSpeed", "enemySpeed", "bulletSpeed"
+   - Use clear units: speeds in pixels/frame, times in milliseconds or seconds
+   - Group related parameters into objects (movement, physics, gameplay, etc.)
+   - Include ALL magic numbers from your code as config values
+   - Think: "If I wanted to make this game feel faster/slower/easier/harder, what would I change?"
+
+The goal is that a user can open config.json, modify values, refresh the game, and immediately feel the difference in gameplay without touching any code.
+"""
+
+# Configuration file requirements for game modification
+CONFIG_FILE_MODIFY_REQUIREMENTS = """Game Configuration File Updates:
+When modifying the game based on feedback, you MUST update config.json to reflect new or changed mechanics.
+
+Update Strategy:
+1. If feedback adds NEW mechanics with tunable parameters:
+   - Add new parameters to config.json with appropriate defaults
+   - Load and use these parameters in your new code
+   
+2. If feedback modifies EXISTING mechanics:
+   - Keep existing config parameters that still apply
+   - Update parameter values if new defaults make more sense
+   - Add new related parameters if the modification introduces them
+   
+3. If feedback removes mechanics:
+   - remove them if you're certain they're no longer used
+
+4. Never maintain backward compatibility for removed parameters
+
+Examples:
+- User asks: "Make the game faster" → Adjust speed-related values in config.json
+- User asks: "Add a dash ability" → Add dash parameters (dashSpeed, dashCooldown, dashDuration) to config.json
+- User asks: "Add more enemies" → Add enemy count parameters or spawn rate parameters
+- User asks: "Make it harder" → Add or adjust difficulty-related parameters
+
+Remember: The config.json should always represent the current tunable parameters of the game. After modifications, a user should still be able to open config.json and tweak the gameplay without touching code.
+"""
+
 # Test case requirements for game modification/feedback
 TEST_CASE_MODIFY_REQUIREMENTS = f"""Test Case Requirements:
 You MUST create 1-5 test cases to validate different game states. Test cases help catch visual bugs.
@@ -185,6 +286,7 @@ When creating a game:
 5. Make games that are visually appealing and fun to play
 6. Consider responsive design and different screen sizes
 7. Game have to support full stop/pause flag for test cases.
+8. Add background music and sound effects when appropriate to enhance the experience
 
 Project Structure Requirements:
 - index.html should load the CSS and JS files using <link> and <script> tags
@@ -213,6 +315,8 @@ Always create working, complete games. Don't leave placeholders or TODOs.
 
 {TEST_CASE_CREATE_REQUIREMENTS}
 
+{CONFIG_FILE_CREATE_REQUIREMENTS}
+
 {IGNORE_WARNINGS}
 
 """
@@ -230,6 +334,7 @@ In playable ads, the game MUST be visible immediately when opened, but PAUSED un
 - After first touch, the game should start playing normally
 
 Your task is to fix issues or add new features to the existing game files according to the user's request.
+Remember that you can add background music and sound effects to enhance the game experience.
 
 CRITICAL - PixiJS API (Version 8.x):
 Use app.view NOT app.canvas - app.canvas does NOT exist in PixiJS 8.x!
@@ -248,6 +353,8 @@ Rules for changing files:
 - Each SEARCH / REPLACE block contains a single search and replace pair formatted with
 
 {TEST_CASE_MODIFY_REQUIREMENTS}
+
+{CONFIG_FILE_MODIFY_REQUIREMENTS}
 
 {IGNORE_WARNINGS}
 """
@@ -271,6 +378,83 @@ Each asset may have two types of descriptions:
 Use both descriptions to better understand what each asset is and how to use it effectively in your game.
 
 Remember to use these assets to make your game visually appealing!
+"""
+
+SOUND_PACK_INSTRUCTIONS = """
+# Using Sound Packs
+
+{sound_context}
+
+## Sound Descriptions
+
+Each sound/music file includes:
+- **name**: The filename of the sound/music
+- **description**: What the sound represents and when it should be used
+- **type**: The type of sound (background_music, sfx, etc.)
+- **duration**: Duration if known
+
+## How to Use Sounds in Your Game
+
+Sounds are located in the Sounds folder with the same pack structure as assets.
+
+### Loading and Playing Background Music:
+
+```javascript
+// Load and play background music
+const backgroundMusic = new Audio('sounds/background.mp3');
+backgroundMusic.loop = true;
+backgroundMusic.volume = 0.5; // Adjust volume (0.0 to 1.0)
+
+// Start music after first user interaction (required by browsers)
+let musicStarted = false;
+app.view.addEventListener('pointerdown', () => {{
+    if (!musicStarted) {{
+        backgroundMusic.play();
+        musicStarted = true;
+    }}
+}}, {{ once: true }});
+```
+
+### Important Rules for Audio:
+- Browser autoplay policies require user interaction before playing audio
+- Always start audio after the first click/touch
+- Include a mute toggle option for better user experience
+- Use `loop = true` for background music
+- Keep volume reasonable (0.3 - 0.7 range recommended)
+
+### Complete Example with Mute Toggle:
+
+```javascript
+// Audio setup
+const backgroundMusic = new Audio('sounds/background.mp3');
+backgroundMusic.loop = true;
+backgroundMusic.volume = 0.5;
+
+let isMuted = false;
+let musicStarted = false;
+
+// Start music on first interaction
+app.view.addEventListener('pointerdown', () => {{
+    if (!musicStarted) {{
+        if (!isMuted) {{
+            backgroundMusic.play();
+        }}
+        musicStarted = true;
+    }}
+}}, {{ once: true }});
+
+// Mute toggle function
+function toggleMute() {{
+    isMuted = !isMuted;
+    if (isMuted) {{
+        backgroundMusic.pause();
+    }} else if (musicStarted) {{
+        backgroundMusic.play();
+    }}
+}}
+```
+
+Remember to use sounds to enhance the game experience and make it more engaging!
 """
 
 PIXI_CDN_INSTRUCTIONS = """
@@ -359,3 +543,193 @@ Given original user request:
 {user_prompt}
 Implement solely the required changes according to the user feedback:
 {feedback}"""
+
+GAME_DESIGNER_PROMPT = """
+You are a senior playable-ad game designer.
+Transform the user's short concept into a concise, build-ready Mini-GDD for an HTML5 playable ad.
+Output ONLY sections 2,3,4,5,6,7,8,9,10,11,13 (skip all others).
+Write in English, Markdown headings, and choose specific, numeric values—no vague text.
+If info is missing, assume sensible defaults and don't ask questions.
+
+Global defaults (use when unspecified):
+
+Orientation: 9:16 portrait (fluid to 1:1 and 16:9 with letterboxing).
+
+Session target: 22–28 s to CTA; tutorial 3–5 s.
+
+Controls latency: debounce 80 ms, drag threshold 12 px.
+
+Safe areas: text/CTA ≥ 64 px from edges; min hit target 44 px.
+
+Determinism for QA: set RNG seed (e.g., 1337).
+
+{asset_pack_info}
+
+Output format (use exactly these headings and bullets):
+
+2) Core Loop
+
+One-liner summary (≤15 words).
+
+3–5 loop steps: input → system response → progress → feedback.
+
+3) Session Flow
+
+Timeline (e.g., 0–1s preload → 1–4s tutorial → 4–22s play → 22–30s end card).
+
+States with entry/exit rules: Preload → Tutorial → Play → Win/Lose/Auto → EndCard.
+
+Persisted data between states (e.g., meter %, RNG seed, mute state).
+
+4) Controls & Input
+
+Gestures allowed; active area (% of canvas).
+
+Thresholds: drag threshold (px), debounce (ms), idle timeout (s).
+
+Hitboxes: min sizes (px) for interactive elements and CTA.
+
+5) Mechanics & Rules
+
+Win condition with numbers; fail/auto-complete rules with exact timers.
+
+Difficulty seeding (what is easy at start); hint logic (idle seconds).
+
+Scoring/meters: increments, caps, decay (if any).
+
+6) Level / Content Data
+
+Layout spec (lanes/grid/coordinates).
+
+Spawn table (time windows, types, lanes), with RNG seed.
+
+Any speed curves or spawn ramp (numerical).
+
+7) Tutorial Spec
+
+Step list: copy text (verbatim), visual aid, completion condition per step.
+
+Fallbacks: idle hint timing; skip after N seconds.
+
+8) UI & Layout
+
+Anchors and scaling rules for 9:16 / 1:1 / 16:9.
+
+Typography: font family, sizes, max line width %.
+
+Color/contrast rule (≥4.5:1 for text), safe areas.
+
+9) End Card (CTA)
+
+Components: logo, 1–3 feature bullets, rating stars (fixed), CTA label.
+
+Behavior: single mraid.open(clickUrl); visual feedback; CTA always visible within safe area.
+
+10) Audio
+
+{sound_instructions}
+
+SFX list (event → file id); load policy (lazy after first input).
+
+Mute toggle behavior; persistence across states.
+
+11) Assets & Naming
+
+{asset_instructions}
+
+Atlases (PNG/WebP + JSON), max dims, padding (2–4 px), PoT preferred.
+
+Z-order layers; total images KB pre-zip and estimated zipped size.
+
+File naming conventions.
+
+13) Edge Cases & Policies
+
+Background/resume rules; orientation changes (letterbox); lost focus.
+
+Idle user path: hint → auto-complete → end card.
+
+Policy compliance: sound off by default; no multiple CTA opens; no external calls.
+
+Input: A short concept line from the user.
+Output: Only the Markdown document above, fully filled, no extra commentary.
+
+Example input:
+simple racing game
+
+(Optional) One-shot example of the expected style (very brief)
+2) Core Loop
+
+One-liner: Swipe between lanes to avoid traffic and collect 5 flags.
+
+Steps: (1) Player swipes → (2) Car shifts lane → (3) Flag collected, meter +20% → (4) Particle + SFX.
+
+3) Session Flow
+
+0–1s preload → 1–4s tutorial → 4–22s play → 22–30s end card.
+
+States: Preload (assets ready) → Tutorial (step1 done) → Play (meter≥100% = win) → EndCard.
+
+Persist: meter %, lane index, mute, RNG seed=1337.
+
+(…and so on for sections 4,5,6,7,8,9,10,11,13 with concrete numbers.)
+
+Here is user's short concept:
+{user_prompt}
+"""
+
+# Asset pack info templates for game designer prompt
+GAME_DESIGNER_ASSET_PACK_INFO = """
+Asset Pack Information:
+
+You have access to the following asset pack: {pack_name}
+
+Available assets:
+{asset_list}
+
+IMPORTANT: When specifying assets in your GDD, you MUST use these exact asset filenames.
+In section 11) Assets & Naming, specify which assets from this pack should be used for different game elements.
+"""
+
+GAME_DESIGNER_NO_ASSETS = """
+Asset Pack Information:
+
+No asset pack is provided. The game will use PixiJS primitives for graphics.
+In section 11) Assets & Naming, specify how to use PixiJS Graphics API (rectangles, circles, etc.) with specific colors and dimensions.
+"""
+
+GAME_DESIGNER_ASSET_INSTRUCTIONS_WITH_PACK = """For each visual element in the game, specify which asset file from the provided pack should be used.
+List the mapping between game elements and asset files (e.g., "Player: player_car.png", "Obstacle: obstacle_01.png").
+"""
+
+GAME_DESIGNER_ASSET_INSTRUCTIONS_NO_PACK = """For each visual element in the game, specify how to create it using PixiJS Graphics primitives.
+Include shape type (rectangle, circle, polygon), dimensions, fill colors (hex codes), stroke colors, and any other visual properties.
+Example: "Player: Rectangle 40x60px, fill #FF5733, rounded corners 5px"
+"""
+
+# Sound pack info templates for game designer and developer prompts
+GAME_DESIGNER_SOUND_PACK_INFO = """
+Sound Pack Information:
+
+You have access to the following sound pack: {pack_name}
+
+Available sounds/music:
+{sound_list}
+
+IMPORTANT: When specifying audio in your GDD, you MUST use these exact sound filenames.
+In section 10) Audio, specify which sounds from this pack should be used for background music and sound effects.
+"""
+
+GAME_DESIGNER_NO_SOUNDS = """
+Sound Pack Information:
+
+No sound pack is provided. The game can be created without audio, or you can specify that generic sound effects should be added.
+"""
+
+GAME_DESIGNER_SOUND_INSTRUCTIONS_WITH_PACK = """For background music and sound effects, specify which sound files from the provided pack should be used.
+List when each sound should play (e.g., "Background music: background.mp3 - loops continuously during gameplay", "Jump SFX: jump.mp3 - plays on player jump action").
+"""
+
+GAME_DESIGNER_SOUND_INSTRUCTIONS_NO_PACK = """If audio is desired, specify what type of sounds would be needed (e.g., "Background music: upbeat electronic music", "Collision SFX: impact sound effect").
+Note that without a sound pack, the game will be created without audio.
+"""

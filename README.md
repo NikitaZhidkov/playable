@@ -19,7 +19,7 @@ pip install -r requirements.txt
 # Set environment variables (copy from ENV_TEMPLATE.txt)
 export ANTHROPIC_API_KEY="your-api-key-here"
 export GEMINI_API_KEY="your-gemini-key-here"
-export LANGSMITH_API_KEY="your-langsmith-key-here"
+export LOGFIRE_TOKEN="your-logfire-token-here"
 
 # Run the agent
 python run.py

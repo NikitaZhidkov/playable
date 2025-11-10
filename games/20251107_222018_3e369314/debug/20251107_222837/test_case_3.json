@@ -1,0 +1,21 @@
+{
+  "score": 30,
+  "playerPosition": {
+    "x": 450,
+    "y": 330
+  },
+  "playerVelocity": {
+    "x": -3,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": true},
+    {"collected": true},
+    {"collected": true},
+    {"collected": false}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Player at position (450, 330) on second brown platform, score showing 30, first 3 golden stars collected (invisible), only the top star still visible rotating, player appears to be moving leftward"
+}

@@ -4,17 +4,11 @@ from src.custom_types import Tool, ToolUse, TextRaw, ThinkingBlock, ContentBlock
 import logging
 from dotenv import load_dotenv
 from src.prompts import SYSTEM_PIXI_GAME_DEVELOPER_PROMPT
-from langsmith import traceable
-from langsmith.run_helpers import get_current_run_tree
 
 # Load environment variables from .env file
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-# Validate LangSmith configuration
-if not os.getenv("LANGSMITH_API_KEY"):
-    raise ValueError("LANGSMITH_API_KEY not found in environment. Set it in .env file.")
 
 
 class LLMClient:
@@ -149,7 +143,6 @@ class LLMClient:
         
         return anthropic_messages
     
-    @traceable(name="claude_call", run_type="llm")
     def call(
         self,
         messages: list,
@@ -227,21 +220,6 @@ class LLMClient:
             f"Token usage - Input: {usage.input_tokens}{cache_info}, "
             f"Output: {usage.output_tokens}, Total: {usage.input_tokens + usage.output_tokens}"
         )
-        
-        # Update LangSmith with token usage
-        run_tree = get_current_run_tree()
-        if run_tree:
-            # Calculate total input tokens (including cache tokens)
-            cache_creation = getattr(usage, 'cache_creation_input_tokens', 0)
-            cache_read = getattr(usage, 'cache_read_input_tokens', 0)
-            total_input = usage.input_tokens + cache_creation + cache_read
-            
-            # Update metadata with token usage for LangSmith UI
-            run_tree.add_metadata({
-                "prompt_tokens": total_input,
-                "completion_tokens": usage.output_tokens,
-                "total_tokens": total_input + usage.output_tokens
-            })
         
         return response
 

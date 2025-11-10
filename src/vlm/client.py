@@ -8,16 +8,11 @@ from PIL import Image
 from jinja2 import Template
 import google.generativeai as genai
 from dotenv import load_dotenv
-from langsmith import traceable
-from langsmith.run_helpers import get_current_run_tree
+import logfire
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-# Validate LangSmith configuration
-if not os.getenv("LANGSMITH_API_KEY"):
-    raise ValueError("LANGSMITH_API_KEY not found in environment. Set it in .env file.")
 
 
 class VLMClient:
@@ -37,7 +32,6 @@ class VLMClient:
         self.model = genai.GenerativeModel(self.model_name)
         logger.info(f"Initialized VLMClient with model: {self.model_name}")
     
-    @traceable(name="gemini_vlm_validation", run_type="llm")
     def validate_with_screenshot(
         self, 
         screenshot_bytes: bytes, 
@@ -67,40 +61,45 @@ class VLMClient:
         logger.info(f"Validating with VLM using model: {self.model_name}")
         logger.debug(f"Rendered prompt: {rendered_prompt[:200]}...")
         
-        # Convert bytes to PIL Image
-        image = Image.open(io.BytesIO(screenshot_bytes))
-        
-        # Generate content with image and prompt
-        response = self.model.generate_content([rendered_prompt, image])
-        
-        # Log token usage
-        if hasattr(response, 'usage_metadata') and response.usage_metadata:
-            usage_metadata = response.usage_metadata
-            cache_info = ""
-            if hasattr(usage_metadata, 'cached_content_token_count') and usage_metadata.cached_content_token_count:
-                cache_info = f" (cached: {usage_metadata.cached_content_token_count})"
+        with logfire.span(
+            f"Google Vision API ({self.model_name})",
+            model=self.model_name,
+            provider="google",
+            operation="generate_content",
+            prompt_length=len(rendered_prompt),
+            has_console_logs=bool(console_logs)
+        ) as span:
+            # Convert bytes to PIL Image
+            image = Image.open(io.BytesIO(screenshot_bytes))
             
-            logger.info(
-                f"Token usage - Input: {usage_metadata.prompt_token_count}{cache_info}, "
-                f"Output: {usage_metadata.candidates_token_count}, "
-                f"Total: {usage_metadata.total_token_count}"
-            )
-        
-        logger.info("VLM validation response received")
-        logger.debug(f"VLM response: {response.text[:200]}...")
-        
-        # Update LangSmith with token usage
-        if hasattr(response, 'usage_metadata') and response.usage_metadata:
-            run_tree = get_current_run_tree()
-            if run_tree:
+            # Generate content with image and prompt
+            response = self.model.generate_content([rendered_prompt, image])
+            
+            # Add token usage to span attributes
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
                 usage_metadata = response.usage_metadata
+                cache_info = ""
+                if hasattr(usage_metadata, 'cached_content_token_count') and usage_metadata.cached_content_token_count:
+                    cache_info = f" (cached: {usage_metadata.cached_content_token_count})"
                 
-                # Update metadata with token usage for LangSmith UI
-                run_tree.update_metadata({
-                    "prompt_tokens": usage_metadata.prompt_token_count,
-                    "completion_tokens": usage_metadata.candidates_token_count,
-                    "total_tokens": usage_metadata.total_token_count
-                })
-        
-        return response.text
+                # Log to logger
+                logger.info(
+                    f"Token usage - Input: {usage_metadata.prompt_token_count}{cache_info}, "
+                    f"Output: {usage_metadata.candidates_token_count}, "
+                    f"Total: {usage_metadata.total_token_count}"
+                )
+                
+                # Add to span attributes
+                span.set_attribute("input_tokens", usage_metadata.prompt_token_count)
+                span.set_attribute("output_tokens", usage_metadata.candidates_token_count)
+                span.set_attribute("total_tokens", usage_metadata.total_token_count)
+                span.set_attribute("cached_tokens", getattr(usage_metadata, 'cached_content_token_count', 0))
+            
+            # Add response length to span
+            span.set_attribute("response_length", len(response.text))
+            
+            logger.info("VLM validation response received")
+            logger.debug(f"VLM response: {response.text[:200]}...")
+            
+            return response.text
 

@@ -26,7 +26,8 @@ class Session:
         status: str = "in_progress",
         git_branch: Optional[str] = None,
         graph_state: Optional[dict] = None,
-        last_error: Optional[str] = None
+        last_error: Optional[str] = None,
+        game_designer_output: Optional[str] = None
     ):
         self.session_id = session_id
         self.initial_prompt = initial_prompt
@@ -39,6 +40,7 @@ class Session:
         self.git_branch = git_branch
         self.graph_state = graph_state or {}
         self.last_error = last_error
+        self.game_designer_output = game_designer_output
     
     def to_dict(self) -> dict:
         """Convert session to dictionary."""
@@ -53,7 +55,8 @@ class Session:
             "status": self.status,
             "git_branch": self.git_branch,
             "graph_state": self.graph_state,
-            "last_error": self.last_error
+            "last_error": self.last_error,
+            "game_designer_output": self.game_designer_output
         }
     
     @classmethod
@@ -70,7 +73,8 @@ class Session:
             status=data.get("status", "in_progress"),
             git_branch=data.get("git_branch"),
             graph_state=data.get("graph_state", {}),
-            last_error=data.get("last_error")
+            last_error=data.get("last_error"),
+            game_designer_output=data.get("game_designer_output")
         )
     
     def add_iteration(self, feedback: str, timestamp: str):

@@ -1,0 +1,14 @@
+{
+  "gameState": "tutorial",
+  "playerPosition": {
+    "x": 200,
+    "y": 680
+  },
+  "currentLane": 1,
+  "gameSpeed": 120,
+  "distanceTraveled": 0,
+  "gameTime": 0,
+  "isOilHit": false,
+  "tutorialStep": 1,
+  "expectedOutput": "Tutorial screen visible with 'Tap left and right to change lanes!' text, red car positioned in center lane at bottom of screen, speed shows 120, distance shows 0%, oil spills visible on track, dark overlay with tutorial instructions"
+}

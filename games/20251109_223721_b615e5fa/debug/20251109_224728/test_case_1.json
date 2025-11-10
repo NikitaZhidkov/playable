@@ -1,0 +1,18 @@
+{
+  "gameState": "play",
+  "isPaused": true,
+  "currentDistance": 0,
+  "currentSpeed": 40,
+  "targetLane": 2,
+  "isOilSlowed": false,
+  "oilSlowEndTime": 0,
+  "tutorialStep": 2,
+  "gameStartTime": 0,
+  "isMuted": false,
+  "musicStarted": false,
+  "oilSpillCount": 0,
+  "playerPosition": {"x": 207, "y": 586},
+  "speedMeterPercent": 0.67,
+  "distanceMeterPercent": 0,
+  "expectedOutput": "Game start state with blue car in center lane (lane 2), speed meter showing 67% (40/60 speed), distance meter empty (0%), no oil spills visible, game paused until first touch"
+}

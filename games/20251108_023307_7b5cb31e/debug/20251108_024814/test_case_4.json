@@ -1,0 +1,14 @@
+{
+  "gameState": "play",
+  "playerPosition": {
+    "x": 200,
+    "y": 680
+  },
+  "currentLane": 1,
+  "gameSpeed": 72,
+  "distanceTraveled": 450,
+  "gameTime": 12000,
+  "isOilHit": true,
+  "oilHitTimeElapsed": 500,
+  "expectedOutput": "Car in center lane with reduced speed (72 = 120 * 0.6), speed text shows red color indicating oil hit slowdown, distance shows 56% (450/800), car has red tint effect indicating recent oil collision, oil spills visible on track"
+}

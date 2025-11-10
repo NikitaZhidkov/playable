@@ -1,0 +1,18 @@
+{
+  "gameState": "play",
+  "isPaused": false,
+  "currentDistance": 250,
+  "currentSpeed": 20,
+  "targetLane": 3,
+  "isOilSlowed": true,
+  "oilSlowEndTime": 12000,
+  "tutorialStep": 2,
+  "gameStartTime": 8000,
+  "isMuted": false,
+  "musicStarted": true,
+  "oilSpillCount": 2,
+  "playerPosition": {"x": 287, "y": 586},
+  "speedMeterPercent": 0.33,
+  "distanceMeterPercent": 0.31,
+  "expectedOutput": "Car hit oil spill and is slowed - speed reduced to 20 px/s (33% on speed meter shown in red), car in lane 3, distance meter shows 31% progress (250/800), speed meter displays red color indicating oil slow effect active"
+}

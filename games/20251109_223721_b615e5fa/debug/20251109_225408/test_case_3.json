@@ -1,0 +1,18 @@
+{
+  "gameState": "play",
+  "isPaused": false,
+  "currentDistance": 400,
+  "currentSpeed": 60,
+  "targetLane": 4,
+  "isOilSlowed": false,
+  "oilSlowEndTime": 0,
+  "tutorialStep": 2,
+  "gameStartTime": 5000,
+  "isMuted": false,
+  "musicStarted": true,
+  "oilSpillCount": 3,
+  "playerPosition": {"x": 367, "y": 586},
+  "speedMeterPercent": 1.0,
+  "distanceMeterPercent": 0.5,
+  "expectedOutput": "Mid-game state with car at maximum speed (60 px/s) in rightmost lane (lane 4), speed meter fully filled (100%), distance meter half filled (50% - 400/800), multiple oil spills scattered across track, active gameplay"
+}

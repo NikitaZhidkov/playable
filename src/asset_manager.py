@@ -55,12 +55,13 @@ def get_image_dimensions(image_path: Path) -> Tuple[int, int]:
 def parse_existing_descriptions(xml_path: Path) -> Dict[str, Dict[str, str]]:
     """
     Parse existing description.xml file.
+    Preserves ALL attributes including custom ones.
     
     Args:
         xml_path: Path to description.xml file
     
     Returns:
-        Dictionary mapping filename to {width, height, description}
+        Dictionary mapping filename to all attributes (width, height, description, and any custom attributes)
     """
     descriptions = {}
     
@@ -70,11 +71,15 @@ def parse_existing_descriptions(xml_path: Path) -> Dict[str, Dict[str, str]]:
     for asset in root.findall('asset'):
         name = asset.get('name', '')
         if name:
-            descriptions[name] = {
-                'width': asset.get('width', '0'),
-                'height': asset.get('height', '0'),
-                'description': asset.get('description', '')
-            }
+            # Extract ALL attributes, not just the standard ones
+            descriptions[name] = dict(asset.attrib)
+            # Remove 'name' from the dict since it's the key
+            descriptions[name].pop('name', None)
+            
+            # Ensure required attributes have defaults if missing
+            descriptions[name].setdefault('width', '0')
+            descriptions[name].setdefault('height', '0')
+            descriptions[name].setdefault('description', '')
     
     logger.info(f"Parsed {len(descriptions)} existing descriptions from {xml_path}")
     return descriptions
@@ -281,9 +286,10 @@ def generate_description_xml(
 ) -> str:
     """
     Generate XML string from descriptions dictionary.
+    Preserves ALL attributes including custom ones.
     
     Args:
-        descriptions: Dictionary mapping filename to {width, height, description}
+        descriptions: Dictionary mapping filename to all attributes (width, height, description, and any custom attributes)
         pack_name: Name of the asset pack
     
     Returns:
@@ -295,16 +301,21 @@ def generate_description_xml(
     # Add assets in sorted order
     for filename in sorted(descriptions.keys()):
         info = descriptions[filename]
-        ET.SubElement(
-            root,
-            'asset',
-            attrib={
-                'name': filename,
-                'width': str(info['width']),
-                'height': str(info['height']),
-                'description': info['description']
-            }
-        )
+        
+        # Build attributes dict with 'name' first, then all others
+        attribs = {'name': filename}
+        
+        # Add standard attributes in a consistent order
+        for key in ['width', 'height', 'description']:
+            if key in info:
+                attribs[key] = str(info[key])
+        
+        # Add any custom attributes (sorted for consistency)
+        for key in sorted(info.keys()):
+            if key not in ['width', 'height', 'description']:
+                attribs[key] = str(info[key])
+        
+        ET.SubElement(root, 'asset', attrib=attribs)
     
     # Pretty print XML
     xml_str = ET.tostring(root, encoding='unicode')
@@ -364,11 +375,12 @@ def get_or_create_pack_descriptions(
         
         # Check if we have existing description
         if filename in existing_descriptions:
-            descriptions[filename] = existing_descriptions[filename]
+            # Preserve ALL existing attributes (including custom ones)
+            descriptions[filename] = existing_descriptions[filename].copy()
             # Update dimensions if they changed
             descriptions[filename]['width'] = str(width)
             descriptions[filename]['height'] = str(height)
-            logger.debug(f"Using existing description for {filename}")
+            logger.debug(f"Using existing description for {filename} (preserving custom attributes)")
         else:
             # Generate new description with VLM
             logger.info(f"Generating new description for {filename}")
@@ -457,19 +469,36 @@ def format_asset_context_for_prompt(
         ""
     ]
     
-    # List assets with descriptions
+    # List assets with descriptions (including ALL custom attributes)
     for asset in root.findall('asset'):
         name = asset.get('name', '')
         width = asset.get('width', '0')
         height = asset.get('height', '0')
         description = asset.get('description', '')
-        description_human = asset.get('description_human', '')
         
-        # Format the asset line with both descriptions if available
-        if description_human:
-            lines.append(f"- **{name}** ({width}x{height}px): {description} — {description_human}")
-        else:
-            lines.append(f"- **{name}** ({width}x{height}px): {description}")
+        # Start with basic info
+        line_parts = [f"- **{name}** ({width}x{height}px)"]
+        
+        # Add description if available
+        if description:
+            line_parts.append(f": {description}")
+        
+        # Add ALL other custom attributes from XML (e.g., human_description, or any other custom tags)
+        custom_attrs = []
+        for attr_name, attr_value in sorted(asset.attrib.items()):
+            # Skip standard attributes we already handled
+            if attr_name not in ['name', 'width', 'height', 'description']:
+                custom_attrs.append(f"{attr_name}: {attr_value}")
+        
+        # Append custom attributes
+        if custom_attrs:
+            if description:
+                line_parts.append(" | ")
+            else:
+                line_parts.append(": ")
+            line_parts.append(", ".join(custom_attrs))
+        
+        lines.append("".join(line_parts))
     
     lines.extend([
         "",
@@ -708,6 +737,183 @@ def prepare_pack_for_workspace(
     asset_context = format_asset_context_for_prompt(xml_content, pack_name)
     
     return asset_context
+
+
+def list_available_sound_packs(sounds_dir: Path = Path("Sounds")) -> List[str]:
+    """
+    Scan sounds directory for available sound packs.
     
+    Args:
+        sounds_dir: Path to sounds directory
+    
+    Returns:
+        List of pack names (subdirectory names)
+    """
+    if not sounds_dir.exists():
+        logger.warning(f"Sounds directory not found: {sounds_dir}")
+        return []
+    
+    packs = []
+    for item in sounds_dir.iterdir():
+        if item.is_dir() and not item.name.startswith('.'):
+            packs.append(item.name)
+    
+    logger.info(f"Found {len(packs)} sound packs: {packs}")
+    return sorted(packs)
+
+
+def parse_sound_descriptions(xml_path: Path) -> Dict[str, Dict[str, str]]:
+    """
+    Parse sound description.xml file.
+    
+    Args:
+        xml_path: Path to description.xml file
+    
+    Returns:
+        Dictionary mapping filename to all attributes (name, description, type, duration, etc.)
+    """
+    descriptions = {}
+    
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    
+    for sound in root.findall('sound'):
+        name = sound.get('name', '')
+        if name:
+            descriptions[name] = dict(sound.attrib)
+            descriptions[name].pop('name', None)
+            
+            descriptions[name].setdefault('description', '')
+            descriptions[name].setdefault('type', 'unknown')
+    
+    logger.info(f"Parsed {len(descriptions)} sound descriptions from {xml_path}")
+    return descriptions
+
+
+def format_sound_context_for_prompt(xml_content: str, pack_name: str) -> str:
+    """
+    Format sound pack information for inclusion in agent prompt.
+    
+    Args:
+        xml_content: XML content with sound descriptions
+        pack_name: Name of the pack
+    
+    Returns:
+        Formatted text for prompt
+    """
+    root = ET.fromstring(xml_content)
+    
+    lines = [
+        f"# Available Sound Pack: {pack_name}",
+        "",
+        "The following sounds/music are available in the 'sounds/' directory:",
+        ""
+    ]
+    
+    for sound in root.findall('sound'):
+        name = sound.get('name', '')
+        description = sound.get('description', '')
+        sound_type = sound.get('type', 'unknown')
+        
+        line_parts = [f"- **{name}** (Type: {sound_type})"]
+        
+        if description:
+            line_parts.append(f": {description}")
+        
+        custom_attrs = []
+        for attr_name, attr_value in sorted(sound.attrib.items()):
+            if attr_name not in ['name', 'description', 'type']:
+                custom_attrs.append(f"{attr_name}: {attr_value}")
+        
+        if custom_attrs:
+            if description:
+                line_parts.append(" | ")
+            else:
+                line_parts.append(": ")
+            line_parts.append(", ".join(custom_attrs))
+        
+        lines.append("".join(line_parts))
+    
+    lines.extend([
+        "",
+        "## How to Use Sounds",
+        "",
+        "Load sound files from the 'sounds/' directory:",
+        "",
+        "```javascript",
+        "// Background music",
+        "const backgroundMusic = new Audio('sounds/background.mp3');",
+        "backgroundMusic.loop = true;",
+        "backgroundMusic.volume = 0.5;",
+        "",
+        "// Start music after first user interaction",
+        "let musicStarted = false;",
+        "app.view.addEventListener('pointerdown', () => {",
+        "    if (!musicStarted) {",
+        "        backgroundMusic.play();",
+        "        musicStarted = true;",
+        "    }",
+        "}, { once: true });",
+        "```",
+        "",
+        "Remember: Browser autoplay policies require user interaction before playing audio!",
+        ""
+    ])
+    
+    return '\n'.join(lines)
+
+
+def prepare_sound_pack_for_workspace(
+    pack_name: str,
+    workspace_sounds_dir: Path,
+    source_sounds_dir: Path = Path("Sounds")
+) -> Optional[str]:
+    """
+    Prepare a sound pack for use in workspace.
+    Copies sound files and returns formatted context for prompt.
+    
+    Args:
+        pack_name: Name of the sound pack to prepare
+        workspace_sounds_dir: Path to workspace sounds directory
+        source_sounds_dir: Path to source sounds directory
+    
+    Returns:
+        Formatted sound context for prompt, or None if failed
+    """
+    pack_path = source_sounds_dir / pack_name
+    
+    if not pack_path.exists():
+        logger.warning(f"Sound pack directory not found: {pack_path}")
+        return None
+    
+    logger.info(f"Preparing sound pack '{pack_name}'")
+    
+    xml_path = pack_path / "description.xml"
+    if not xml_path.exists():
+        logger.warning(f"No description.xml found for sound pack {pack_name}")
+        return None
+    
+    xml_content = xml_path.read_text(encoding='utf-8')
+    
+    workspace_sounds_dir.mkdir(parents=True, exist_ok=True)
+    
+    import shutil
+    sound_files = list(pack_path.glob("*.mp3")) + list(pack_path.glob("*.wav")) + list(pack_path.glob("*.ogg"))
+    
+    if not sound_files:
+        logger.warning(f"No sound files found in pack {pack_name}")
+        return None
+    
+    for sound_file in sound_files:
+        dest_path = workspace_sounds_dir / sound_file.name
+        shutil.copy2(sound_file, dest_path)
+        logger.info(f"Copied sound file: {sound_file.name}")
+    
+    logger.info(f"Prepared {len(sound_files)} sound files")
+    
+    sound_context = format_sound_context_for_prompt(xml_content, pack_name)
+    
+    return sound_context
+
 
 

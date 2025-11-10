@@ -1,0 +1,18 @@
+{
+  "gameState": "endcard",
+  "isPaused": true,
+  "currentDistance": 800,
+  "currentSpeed": 55,
+  "targetLane": 2,
+  "isOilSlowed": false,
+  "oilSlowEndTime": 0,
+  "tutorialStep": 2,
+  "gameStartTime": 20000,
+  "isMuted": true,
+  "musicStarted": true,
+  "oilSpillCount": 0,
+  "playerPosition": {"x": 207, "y": 586},
+  "speedMeterPercent": 0.92,
+  "distanceMeterPercent": 1.0,
+  "expectedOutput": "Game completed successfully - distance meter shows 100% (800/800), end card overlay displayed with 'RACING CHAMPION' logo, bullet points ('Epic Racing Action!', 'Challenge Friends!', 'Download Now!'), 4.5-star rating, and 'PLAY NOW' CTA button, audio muted, game paused"
+}

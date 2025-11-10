@@ -1,0 +1,21 @@
+{
+  "score": 40,
+  "playerPosition": {
+    "x": 330,
+    "y": 180
+  },
+  "playerVelocity": {
+    "x": 0,
+    "y": 0
+  },
+  "isOnGround": true,
+  "collectibles": [
+    {"collected": true},
+    {"collected": true},
+    {"collected": true},
+    {"collected": true}
+  ],
+  "gameStarted": false,
+  "isPaused": true,
+  "expectedOutput": "Player at position (330, 180) standing on the highest brown platform (platform spans x=300 to x=380, y=200), score showing 40 (maximum possible score), no golden stars visible (all 4 collected and invisible), 'TEST CASE LOADED - TAP TO START!' message visible, game completion state achieved"
+}
