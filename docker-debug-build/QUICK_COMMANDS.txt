@@ -1,0 +1,48 @@
+═══════════════════════════════════════════════════════════
+QUICK COMMAND REFERENCE - Copy & Paste These
+═══════════════════════════════════════════════════════════
+
+ON YOUR MAC:
+───────────────────────────────────────────────────────────
+cd /Users/nikita/Programming/playable/docker-debug-build
+docker-compose build
+docker-compose up -d
+docker exec -it playable-build-debug sh
+
+INSIDE CONTAINER (FIRST TIME):
+───────────────────────────────────────────────────────────
+# Install dependencies (only needed once)
+bun install
+
+# Now run the tests
+./test-commands.sh
+
+# Or test manually:
+bun tsc --noEmit                 # ✅ Type check (works)
+bun run build                    # ❌ Build (fails)
+ls -la dist/                     # Check if created
+DEBUG=* bun run build            # Debug output
+
+# Exit container
+exit
+
+SEARCH FOR BUILD OUTPUT (if dist/ not found):
+───────────────────────────────────────────────────────────
+# Search for dist directories
+find / -type d -name "dist" 2>/dev/null | grep -v node_modules
+
+# Search for HTML files created recently
+find /app -type f -name "*.html" -mmin -5 2>/dev/null
+
+# Search for expected output pattern
+find / -type f -name "*Playable*.html" 2>/dev/null
+
+# Check common build locations
+ls -la /app/dist /app/build /tmp/dist 2>/dev/null
+
+CLEANUP:
+───────────────────────────────────────────────────────────
+docker-compose down
+docker rmi playable-build-debug
+
+═══════════════════════════════════════════════════════════

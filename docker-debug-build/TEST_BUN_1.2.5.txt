@@ -1,0 +1,76 @@
+═══════════════════════════════════════════════════════════
+TEST BUN 1.2.5 - Commands to Run
+═══════════════════════════════════════════════════════════
+
+STEP 1: Stop current container (if running)
+───────────────────────────────────────────────────────────
+cd /Users/nikita/Programming/playable/docker-debug-build
+docker-compose down
+
+STEP 2: Rebuild with Bun 1.2.5
+───────────────────────────────────────────────────────────
+docker-compose build
+
+STEP 3: Start the new container
+───────────────────────────────────────────────────────────
+docker-compose up -d
+
+STEP 4: Verify it's running
+───────────────────────────────────────────────────────────
+docker ps | grep playable-build-debug
+
+STEP 5: Connect to container
+───────────────────────────────────────────────────────────
+docker exec -it playable-build-debug sh
+
+═══════════════════════════════════════════════════════════
+NOW YOU'RE INSIDE THE CONTAINER - Run These:
+═══════════════════════════════════════════════════════════
+
+STEP 6: Check Bun version (should say 1.2.5)
+───────────────────────────────────────────────────────────
+bun --version
+
+STEP 7: Install dependencies
+───────────────────────────────────────────────────────────
+bun install
+
+STEP 8: Run the build
+───────────────────────────────────────────────────────────
+bun run build
+
+STEP 9: Check if dist/ was created
+───────────────────────────────────────────────────────────
+ls -la dist/
+
+STEP 10: If dist/ exists, check contents
+───────────────────────────────────────────────────────────
+ls -la dist/
+cat dist/*.html | head -50
+
+═══════════════════════════════════════════════════════════
+QUICK TEST (all in one)
+═══════════════════════════════════════════────════────════
+bun install && bun run build && ls -la dist/
+
+═══════════════════════════════════════════════════════════
+EXPECTED RESULTS:
+═══════════════════════════════════════════════════════════
+✅ Bun version: 1.2.5
+✅ bun install: Success (creates node_modules/)
+✅ bun run build: Should print "Build successful!"
+✅ ls -la dist/: Should show Playable_Template_*.html file
+✅ File size: ~600KB
+
+IF IT WORKS:
+───────────────────────────────────────────────────────────
+Great! Bun 1.2.5 works. We can update src/main.py to use:
+  base_image="oven/bun:1.2.5-alpine"
+
+IF IT STILL FAILS:
+───────────────────────────────────────────────────────────
+Try next solution: Node.js instead of Bun
+See SOLUTIONS.md for instructions.
+
+═══════════════════════════════════════════════════════════
+

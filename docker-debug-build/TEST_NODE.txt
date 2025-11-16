@@ -1,0 +1,77 @@
+═══════════════════════════════════════════════════════════
+TEST NODE.JS - Commands to Run
+═══════════════════════════════════════════════════════════
+
+WHY NODE.JS?
+───────────────────────────────────────────────────────────
+Bun doesn't support worker_threads options that webpack needs.
+Node.js has full worker_threads support.
+
+STEP 1: Stop current container
+───────────────────────────────────────────────────────────
+cd /Users/nikita/Programming/playable/docker-debug-build
+docker-compose down
+
+STEP 2: Rebuild with Node.js
+───────────────────────────────────────────────────────────
+docker-compose build
+
+STEP 3: Start container
+───────────────────────────────────────────────────────────
+docker-compose up -d
+
+STEP 4: Connect to container
+───────────────────────────────────────────────────────────
+docker exec -it playable-build-debug sh
+
+═══════════════════════════════════════════════════════════
+INSIDE CONTAINER - Run These:
+═══════════════════════════════════════════════════════════
+
+STEP 5: Check Node version
+───────────────────────────────────────────────────────────
+node --version
+npm --version
+
+STEP 6: Install dependencies with npm
+───────────────────────────────────────────────────────────
+npm install
+
+STEP 7: Run the build
+───────────────────────────────────────────────────────────
+npm run build
+
+STEP 8: Check if dist/ was created
+───────────────────────────────────────────────────────────
+ls -la dist/
+
+STEP 9: If success, check file size
+───────────────────────────────────────────────────────────
+du -h dist/*.html
+
+═══════════════════════════════════════════════════════════
+QUICK ONE-LINER TEST:
+═══════════════════════════════════════════════════════════
+npm install && npm run build && ls -la dist/
+
+═══════════════════════════════════════════════════════════
+EXPECTED RESULTS:
+═══════════════════════════════════════════════════════════
+✅ Node version: v20.x.x
+✅ npm install: Creates node_modules/
+✅ npm run build: Shows "Build successful!"
+✅ dist/ exists: With Playable_Template_*.html (~600KB)
+✅ NO worker_threads errors
+
+IF IT WORKS:
+───────────────────────────────────────────────────────────
+Perfect! Update src/main.py to use:
+  base_image="node:20-alpine"
+  
+And change all "bun" commands to "npm":
+  - bun install → npm install
+  - bun tsc → npx tsc
+  - bun run build → npm run build
+
+═══════════════════════════════════════════════════════════
+
