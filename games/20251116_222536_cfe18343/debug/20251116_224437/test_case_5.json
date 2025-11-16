@@ -1,0 +1,7 @@
+{
+  "board": ["x", "o", "x", "o", "x", "o", "o", "x", "empty"],
+  "moveCount": 8,
+  "score": 60,
+  "gameResult": "draw",
+  "expectedOutput": "3x3 board nearly full with mixed X and O marks, one empty cell in bottom-right, score showing 60%, game drawn state with end card visible"
+}

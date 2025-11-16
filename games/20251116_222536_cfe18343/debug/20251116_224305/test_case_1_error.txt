@@ -1,0 +1,17 @@
+Test Case Failure Report
+========================
+
+Test Case: test_case_1
+Timestamp: 2025-11-16 22:43:21
+
+Expected Output:
+Empty 3x3 tic tac toe board with no marks, score showing 0%, game ready for first player move
+
+Actual Output (VLM Observation):
+N/A - test case loading error
+
+Error Message:
+test_case_1: [ERROR] Fetch API cannot load file:///app/config.json. URL scheme "file" is not supported.
+
+Errors:
+[ERROR] Fetch API cannot load file:///app/config.json. URL scheme "file" is not supported.

@@ -238,9 +238,9 @@ def test_max_retries_limit():
     """Test max retries limit (5)."""
     MAX_RETRIES = 5
     
-    state = {"retry_count": 5}
+    state = {"retry_count": 6}
     
-    should_stop = state["retry_count"] >= MAX_RETRIES
+    should_stop = state["retry_count"] > MAX_RETRIES
     
     assert should_stop
 
@@ -251,7 +251,18 @@ def test_retry_below_limit():
     
     state = {"retry_count": 2}
     
-    can_retry = state["retry_count"] < MAX_RETRIES
+    can_retry = state["retry_count"] <= MAX_RETRIES
+    
+    assert can_retry
+
+
+def test_retry_at_limit():
+    """Test retry count at limit (5) still allows retry."""
+    MAX_RETRIES = 5
+    
+    state = {"retry_count": 5}
+    
+    can_retry = state["retry_count"] <= MAX_RETRIES
     
     assert can_retry
 

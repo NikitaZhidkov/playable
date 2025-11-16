@@ -1,0 +1,24 @@
+Test Case Failure Report
+========================
+
+Test Case: test_case_1
+Timestamp: 2025-11-16 22:41:35
+
+Expected Output:
+Empty 3x3 tic tac toe board with no marks, score showing 0%, game ready for first player move
+
+Actual Output (VLM Observation):
+N/A - test case loading error
+
+Error Message:
+test_case_1: Failed to load resource: file:///app/index.html, Failed to load page or test case: page.goto: net::ERR_FILE_NOT_FOUND at file:///app/index.html
+Call log:
+  - navigating to "file:///app/index.html", waiting until "networkidle"
+
+
+Errors:
+Failed to load resource: file:///app/index.html
+Failed to load page or test case: page.goto: net::ERR_FILE_NOT_FOUND at file:///app/index.html
+Call log:
+  - navigating to "file:///app/index.html", waiting until "networkidle"
+

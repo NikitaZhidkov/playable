@@ -330,15 +330,15 @@ def test_max_retries_limit():
     """Test that max retries limit is enforced."""
     MAX_RETRIES = 5
     
-    state = {"retry_count": 5, "test_failures": ["Error"]}
+    state = {"retry_count": 6, "test_failures": ["Error"]}
     
     # Check if should stop
-    should_stop = state["retry_count"] >= MAX_RETRIES
+    should_stop = state["retry_count"] > MAX_RETRIES
     assert should_stop is True
     
     # Check if can continue
     state["retry_count"] = 3
-    can_continue = state["retry_count"] < MAX_RETRIES
+    can_continue = state["retry_count"] <= MAX_RETRIES
     assert can_continue is True
     
     print("✅ Max retries limit enforced")

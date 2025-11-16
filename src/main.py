@@ -72,6 +72,144 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def get_template_structure_info() -> str:
+    """Get information about existing template files to inform the agent."""
+    
+    # Read template files
+    template_path = Path("templates/playable-template-pixi")
+    
+    game_ts_content = (template_path / "src/Game.ts").read_text(encoding='utf-8')
+    index_html_content = (template_path / "src/index.html").read_text(encoding='utf-8')
+    index_ts_content = (template_path / "src/index.ts").read_text(encoding='utf-8')
+    index_css_content = (template_path / "src/index.css").read_text(encoding='utf-8')
+    package_json_content = (template_path / "package.json").read_text(encoding='utf-8')
+    
+    lines = [
+        "# Existing Template Files - Working Example",
+        "",
+        "Your workspace already contains a **WORKING EXAMPLE** of a PixiJS playable ad. This template is fully functional and demonstrates best practices.",
+        "",
+        "**You can use this as a reference** for how to:",
+        "- Set up PixiJS Application",
+        "- Load and use assets with PIXI.Assets.load()",
+        "- Create sprites and containers",
+        "- Handle SDK events (resize, pause, resume, volume, finish)",
+        "- Implement the install button",
+        "- Structure your game code",
+        "",
+        "**Your task**: Modify this working example to match the game design document requirements.",
+        "",
+        "## File Structure",
+        "```",
+        "├── src/",
+        "│   ├── index.html      # Main HTML file",
+        "│   ├── index.ts        # Entry point with SDK initialization (usually don't modify)",
+        "│   ├── index.css       # Styles (usually don't modify)",
+        "│   └── Game.ts         # Main game class (MODIFY THIS)",
+        "├── assets/",
+        "│   └── button.png      # Example asset",
+        "├── package.json        # Dependencies (already configured)",
+        "├── tsconfig.json       # TypeScript config (already configured)",
+        "├── globals.d.ts        # Type definitions",
+        "└── build.json          # Build configuration",
+        "```",
+        "",
+        "## Current File Contents",
+        "",
+        "### src/index.html (current content):",
+        "```html",
+        index_html_content.strip(),
+        "```",
+        "",
+        "### src/index.ts (current content - SDK initialization, usually don't modify):",
+        "```typescript",
+        index_ts_content.strip(),
+        "```",
+        "",
+        "### src/index.css (current content - basic styles, usually don't modify):",
+        "```css",
+        index_css_content.strip(),
+        "```",
+        "",
+        "### src/Game.ts (current content - THIS IS A WORKING EXAMPLE, MODIFY/REPLACE IT):",
+        "```typescript",
+        game_ts_content.strip(),
+        "```",
+        "",
+        "**⚠️ IMPORTANT**: The above Game.ts is a **working example** that shows:",
+        "- How to initialize PixiJS Application with `new PIXI.Application()` and `.init()`",
+        "- How to load assets with `PIXI.Assets.load(buttonBg).then(...)`",
+        "- How to create sprites: `new PIXI.Sprite(texture)`",
+        "- How to create text: `new PIXI.Text({ text: '...', style: ... })`",
+        "- How to handle click events: `sprite.on('pointerdown', () => ...)`",
+        "- How to implement SDK methods: `resize()`, `pause()`, `resume()`, `volume()`, `finish()`",
+        "- How to position and scale elements responsively",
+        "",
+        "**Use this as a template/reference** - keep the structure, modify the game logic to match your GDD!",
+        "",
+        "### package.json (current content - dependencies already configured):",
+        "```json",
+        package_json_content.strip(),
+        "```",
+        "",
+        "## What You Should Do:",
+        "",
+        "1. **MODIFY src/Game.ts** - Replace the example game logic with your actual game implementation",
+        "   - Keep the Game class structure",
+        "   - Keep the required methods: resize(), pause(), resume(), volume(), finish()",
+        "   - Replace the create() method with your game logic",
+        "   - Add any additional methods you need",
+        "",
+        "2. **MODIFY src/index.html** - Update if needed (add meta tags, change title, etc.)",
+        "",
+        "3. **ADD assets** - Place your game assets in the assets/ folder and import them like:",
+        "   ```typescript",
+        "   import myAsset from 'assets/my-asset.png';",
+        "   ```",
+        "",
+        "4. **DON'T MODIFY** these files (they're already configured correctly):",
+        "   - src/index.ts (SDK setup is already correct)",
+        "   - src/index.css (basic styles are already correct)",
+        "   - package.json (dependencies are already correct)",
+        "   - tsconfig.json (TypeScript config is already correct)",
+        "   - build.json (build config is already correct)",
+        "",
+        "## Important Notes:",
+        "",
+        "- **This is a working example**: The template already runs successfully. Study how it works!",
+        "- **PixiJS v8**: Use the latest PixiJS v8 API (as shown in the Game.ts example)",
+        "- **SDK integration**: The template already handles all SDK events properly",
+        "- **Asset imports**: Use `import assetName from 'assets/filename.png'` syntax (as shown in Game.ts)",
+        "- **No CDN links needed**: PixiJS is already in package.json, don't use CDN links in HTML",
+        "- **TypeScript**: Write in TypeScript (.ts files), the build system handles it",
+        "- **Learn from the example**: See how Game.ts loads assets, creates sprites, handles events, etc.",
+        "",
+        "## File Access Restrictions:",
+        "",
+        "**You can ONLY create/edit/delete files in:**",
+        "- `src/` folder - Your game source code (Game.ts, additional .ts files, etc.)",
+        "",
+        "**You can READ but NOT modify:**",
+        "- `assets/` folder - Game assets (images, sounds) prepared from asset packs - USE these in your code with imports",
+        "- `package.json` - Dependencies are already configured",
+        "- `tsconfig.json` - TypeScript config is already configured",
+        "- `build.json` - Build config is already configured",
+        "- `globals.d.ts` - Type definitions are already configured",
+        "- Any other files in the workspace",
+        "",
+        "**Assets are prepared by the system** - you import and use them in your code like:",
+        "```typescript",
+        "import carSprite from 'assets/car_red_4.png';",
+        "```",
+        "",
+        "If you try to create/edit/delete files outside src/, you'll get a PermissionError.",
+        "",
+        "**Your approach**: Study the working Game.ts example above, then modify it to implement your game logic!"
+    ]
+    
+    return "\n".join(lines)
+
+
 async def initialize_workspace(client: dagger.Client, context_dir: Path | None = None) -> Workspace:
     """Initialize a workspace for TypeScript game development with playable-template-pixi."""
     logger.info("Initializing workspace with TypeScript template...")
@@ -87,6 +225,7 @@ async def initialize_workspace(client: dagger.Client, context_dir: Path | None =
     logger.info(f"Template contents: {template_entries}")
     
     # Create workspace with template and install dependencies
+    # Restrict agent to only modify files in src/ folder
     workspace = await Workspace.create(
         client=client,
         base_image="node:20-alpine",  # Node.js has full worker_threads support needed by webpack
@@ -96,7 +235,7 @@ async def initialize_workspace(client: dagger.Client, context_dir: Path | None =
             ["npm", "install"],  # Install dependencies with npm
         ],
         protected=[],
-        allowed=[]
+        allowed=["src/"]  # Agent can only create/edit/delete files in src/ folder
     )
     
     logger.info("Template installed, dependencies installed")
@@ -547,6 +686,9 @@ async def run_new_game_workflow(client: dagger.Client, task_description: str, se
     # Create agent graph
     agent = create_agent_graph(llm_client, file_ops)
     
+    # Get template structure information
+    template_info = get_template_structure_info()
+    
     # Initialize state with GDD as the task description
     # NOTE: The game designer output is embedded in this initial prompt but NOT stored
     # in agent message history separately. The agent only sees "implement this GDD"
@@ -556,7 +698,9 @@ Implement the following game design:
 
 {game_designer_output}
 
-Please create a complete, working pixi.js game based on this detailed game design document. Make sure to use the correct PixiJS CDN link specified above in your HTML file."""
+Please create a complete, working pixi.js game based on this detailed game design document. Make sure to use the correct PixiJS CDN link specified above in your HTML file.
+
+{template_info}"""
 
     # Add asset pack information to user prompt (not system prompt)
     if asset_context:
@@ -591,96 +735,106 @@ Please create a complete, working pixi.js game based on this detailed game desig
     # Initialize final_state for finally block
     final_state = initial_state
     
-    try:
-        # Set session status
-        session.status = "in_progress"
-        save_session(session)
-        
-        # Run the agent
-        config = {"recursion_limit": 1000}
-        final_state = await agent.ainvoke(initial_state, config=config)
-        
-        # Check if max retries reached
-        if final_state.get("retry_count", 0) >= 5:
-            session.status = "max_retries_reached"
-            logger.warning("Maximum retries reached")
-            print("\n" + "=" * 60)
-            print("⚠️  Maximum retry attempts reached")
-            print("=" * 60)
-            print()
-        else:
-            session.status = "completed"
-            print("\n" + "=" * 60)
-            print("✅ Task Completed!")
-            print("=" * 60)
-            print()
-        
-        # Display test results
-        display_test_results(final_state)
-        
-        # Show diff
-        final_workspace = final_state["workspace"]
-        diff = await final_workspace.diff()
-        if diff:
-            print("📝 Changes made:")
-            print("-" * 60)
-            print(diff)
-            print("-" * 60)
-        print()
-        
-        # Initialize git repo on master first (without files)
-        git_folder = game_path / ".git"
-        if not git_folder.exists():
-            # Create an empty .gitkeep file to initialize repo
-            game_path.mkdir(parents=True, exist_ok=True)
-            gitkeep_path = game_path / ".gitkeep"
-            gitkeep_path.touch()
-            init_git_repo(game_path, "Initial commit")
-            gitkeep_path.unlink()  # Remove .gitkeep
-        
-        # Create git branch for this session
-        branch_name = f"session/{session.session_id}"
-        create_git_branch(game_path, branch_name)
-        session.git_branch = branch_name
-        
-        # Save game files on the branch
-        await save_game_files(final_workspace, session, is_new=True)
-        
-        # If successful, merge to master
-        if session.status == "completed":
-            merge_to_master(game_path)
-            print("✅ Changes merged to master branch")
-        
-        print(f"✅ Game saved to: {get_game_path(session.session_id)}")
-        print(f"   📂 Source code: {get_game_path(session.session_id)}/src/")
-        print(f"   🎮 Built game: {get_game_path(session.session_id)}/dist/index.html")
-        print()
-        
-        return session
-        
-    except KeyboardInterrupt:
-        session.status = "interrupted"
-        session.last_error = "Interrupted by user"
-        print("\n\n⚠️  Interrupted by user")
-        raise
-    except Exception as e:
-        session.status = "failed"
-        session.last_error = str(e)
-        logger.error(f"Error during execution: {e}", exc_info=True)
-        print(f"\n❌ Error: {e}")
-        print("Check logs for details.")
-        raise
-    finally:
-        # Always save state (message history and graph state)
+    # Wrap entire session execution in a Logfire span for separation
+    with logfire.span(
+        f"🎮 Session: {session.session_id}",
+        session_id=session.session_id,
+        mode="new_game",
+        task=task_description[:200] if len(task_description) > 200 else task_description,
+        has_asset_pack=bool(selected_pack),
+        asset_pack=selected_pack if selected_pack else None,
+        created_at=session.created_at
+    ):
         try:
-            session.set_message_history(final_state["messages"])
-            session.save_graph_state(final_state)
-            session.last_modified = datetime.now().isoformat()
+            # Set session status
+            session.status = "in_progress"
             save_session(session)
-            logger.info(f"Session state saved: status={session.status}")
-            logger.info(f"Saved {len(final_state['messages'])} messages to session history")
+            
+            # Run the agent
+            config = {"recursion_limit": 1000}
+            final_state = await agent.ainvoke(initial_state, config=config)
+            
+            # Check if max retries reached
+            if final_state.get("retry_count", 0) > 5:
+                session.status = "max_retries_reached"
+                logger.warning("Maximum retries reached")
+                print("\n" + "=" * 60)
+                print("⚠️  Maximum retry attempts reached")
+                print("=" * 60)
+                print()
+            else:
+                session.status = "completed"
+                print("\n" + "=" * 60)
+                print("✅ Task Completed!")
+                print("=" * 60)
+                print()
+            
+            # Display test results
+            display_test_results(final_state)
+            
+            # Show diff
+            final_workspace = final_state["workspace"]
+            diff = await final_workspace.diff()
+            if diff:
+                print("📝 Changes made:")
+                print("-" * 60)
+                print(diff)
+                print("-" * 60)
+            print()
+            
+            # Initialize git repo on master first (without files)
+            git_folder = game_path / ".git"
+            if not git_folder.exists():
+                # Create an empty .gitkeep file to initialize repo
+                game_path.mkdir(parents=True, exist_ok=True)
+                gitkeep_path = game_path / ".gitkeep"
+                gitkeep_path.touch()
+                init_git_repo(game_path, "Initial commit")
+                gitkeep_path.unlink()  # Remove .gitkeep
+            
+            # Create git branch for this session
+            branch_name = f"session/{session.session_id}"
+            create_git_branch(game_path, branch_name)
+            session.git_branch = branch_name
+            
+            # Save game files on the branch
+            await save_game_files(final_workspace, session, is_new=True)
+            
+            # If successful, merge to master
+            if session.status == "completed":
+                merge_to_master(game_path)
+                print("✅ Changes merged to master branch")
+            
+            print(f"✅ Game saved to: {get_game_path(session.session_id)}")
+            print(f"   📂 Source code: {get_game_path(session.session_id)}/src/")
+            print(f"   🎮 Built game: {get_game_path(session.session_id)}/dist/index.html")
+            print()
+            
+            return session
+            
+        except KeyboardInterrupt:
+            session.status = "interrupted"
+            session.last_error = "Interrupted by user"
+            print("\n\n⚠️  Interrupted by user")
+            raise
         except Exception as e:
-            logger.error(f"Failed to save session state: {e}", exc_info=True)
+            session.status = "failed"
+            session.last_error = str(e)
+            logger.error(f"Error during execution: {e}", exc_info=True)
+            print(f"\n❌ Error: {e}")
+            print("Check logs for details.")
+            raise
+        finally:
+            # Always save state (message history and graph state)
+            try:
+                session.set_message_history(final_state["messages"])
+                session.save_graph_state(final_state)
+                session.last_modified = datetime.now().isoformat()
+                save_session(session)
+                logger.info(f"Session state saved: status={session.status}")
+                logger.info(f"Saved {len(final_state['messages'])} messages to session history")
+            except Exception as e:
+                logger.error(f"Failed to save session state: {e}", exc_info=True)
 
 
 async def run_feedback_workflow(
@@ -878,91 +1032,102 @@ Please implement the requested changes. You have access to all the current game 
     # Initialize final_state for finally block
     final_state = initial_state
     
-    try:
-        # Checkout or create git branch
-        if session.git_branch:
-            logger.info(f"Checking out existing branch: {session.git_branch}")
-            checkout_git_branch(game_path, session.git_branch)
-        else:
-            # Create new branch for this feedback iteration
-            branch_name = f"session/{session.session_id}"
-            create_git_branch(game_path, branch_name)
-            session.git_branch = branch_name
-        
-        # Set session status
-        session.status = "in_progress"
-        save_session(session)
-        
-        # Run the agent
-        config = {"recursion_limit": 1000}
-        final_state = await agent.ainvoke(initial_state, config=config)
-        
-        # Check if max retries reached
-        if final_state.get("retry_count", 0) >= 5:
-            session.status = "max_retries_reached"
-            logger.warning("Maximum retries reached")
-            print("\n" + "=" * 60)
-            print("⚠️  Maximum retry attempts reached")
-            print("=" * 60)
-            print()
-        else:
-            session.status = "completed"
-            print("\n" + "=" * 60)
-            print("✅ Feedback Applied!")
-            print("=" * 60)
-            print()
-        
-        # Display test results
-        display_test_results(final_state)
-        
-        # Show diff
-        final_workspace = final_state["workspace"]
-        diff = await final_workspace.diff()
-        if diff:
-            print("📝 Changes made:")
-            print("-" * 60)
-            print(diff)
-            print("-" * 60)
-        print()
-        
-        # Save updated game files
-        await save_game_files(final_workspace, session, is_new=False, feedback=feedback)
-        
-        # If successful, merge to master
-        if session.status == "completed":
-            merge_to_master(game_path)
-            print("✅ Changes merged to master branch")
-        
-        print(f"✅ Game updated in: {get_game_path(session.session_id)}")
-        print(f"   📂 Source code: {get_game_path(session.session_id)}/src/")
-        print(f"   🎮 Built game: {get_game_path(session.session_id)}/dist/index.html")
-        print()
-        
-        return session
-        
-    except KeyboardInterrupt:
-        session.status = "interrupted"
-        session.last_error = "Interrupted by user"
-        print("\n\n⚠️  Interrupted by user")
-        raise
-    except Exception as e:
-        session.status = "failed"
-        session.last_error = str(e)
-        logger.error(f"Error during execution: {e}", exc_info=True)
-        print(f"\n❌ Error: {e}")
-        print("Check logs for details.")
-        raise
-    finally:
-        # Always save state (message history and graph state)
+    # Wrap entire session execution in a Logfire span for separation
+    with logfire.span(
+        f"🔄 Session: {session.session_id} (feedback)",
+        session_id=session.session_id,
+        mode="feedback",
+        feedback=feedback[:200] if len(feedback) > 200 else feedback,
+        original_task=session.initial_prompt[:200] if len(session.initial_prompt) > 200 else session.initial_prompt,
+        use_message_history=use_message_history,
+        continue_from_state=continue_from_state,
+        created_at=session.created_at
+    ):
         try:
-            session.set_message_history(final_state["messages"])
-            session.save_graph_state(final_state)
-            session.last_modified = datetime.now().isoformat()
+            # Checkout or create git branch
+            if session.git_branch:
+                logger.info(f"Checking out existing branch: {session.git_branch}")
+                checkout_git_branch(game_path, session.git_branch)
+            else:
+                # Create new branch for this feedback iteration
+                branch_name = f"session/{session.session_id}"
+                create_git_branch(game_path, branch_name)
+                session.git_branch = branch_name
+            
+            # Set session status
+            session.status = "in_progress"
             save_session(session)
-            logger.info(f"Session state saved: status={session.status}")
-            logger.info(f"Saved {len(final_state['messages'])} messages to session history")
+            
+            # Run the agent
+            config = {"recursion_limit": 1000}
+            final_state = await agent.ainvoke(initial_state, config=config)
+            
+            # Check if max retries reached
+            if final_state.get("retry_count", 0) > 5:
+                session.status = "max_retries_reached"
+                logger.warning("Maximum retries reached")
+                print("\n" + "=" * 60)
+                print("⚠️  Maximum retry attempts reached")
+                print("=" * 60)
+                print()
+            else:
+                session.status = "completed"
+                print("\n" + "=" * 60)
+                print("✅ Feedback Applied!")
+                print("=" * 60)
+                print()
+            
+            # Display test results
+            display_test_results(final_state)
+            
+            # Show diff
+            final_workspace = final_state["workspace"]
+            diff = await final_workspace.diff()
+            if diff:
+                print("📝 Changes made:")
+                print("-" * 60)
+                print(diff)
+                print("-" * 60)
+            print()
+            
+            # Save updated game files
+            await save_game_files(final_workspace, session, is_new=False, feedback=feedback)
+            
+            # If successful, merge to master
+            if session.status == "completed":
+                merge_to_master(game_path)
+                print("✅ Changes merged to master branch")
+            
+            print(f"✅ Game updated in: {get_game_path(session.session_id)}")
+            print(f"   📂 Source code: {get_game_path(session.session_id)}/src/")
+            print(f"   🎮 Built game: {get_game_path(session.session_id)}/dist/index.html")
+            print()
+            
+            return session
+            
+        except KeyboardInterrupt:
+            session.status = "interrupted"
+            session.last_error = "Interrupted by user"
+            print("\n\n⚠️  Interrupted by user")
+            raise
         except Exception as e:
-            logger.error(f"Failed to save session state: {e}", exc_info=True)
+            session.status = "failed"
+            session.last_error = str(e)
+            logger.error(f"Error during execution: {e}", exc_info=True)
+            print(f"\n❌ Error: {e}")
+            print("Check logs for details.")
+            raise
+        finally:
+            # Always save state (message history and graph state)
+            try:
+                session.set_message_history(final_state["messages"])
+                session.save_graph_state(final_state)
+                session.last_modified = datetime.now().isoformat()
+                save_session(session)
+                logger.info(f"Session state saved: status={session.status}")
+                logger.info(f"Saved {len(final_state['messages'])} messages to session history")
+            except Exception as e:
+                logger.error(f"Failed to save session state: {e}", exc_info=True)
 
 
 async def save_game_files(workspace: Workspace, session: Session, is_new: bool = False, feedback: str | None = None, base_path: Path = Path("games")):
@@ -972,40 +1137,28 @@ async def save_game_files(workspace: Workspace, session: Session, is_new: bool =
     
     logger.info(f"Saving game files to {game_path}")
     
-    # Log what's in workspace before export - fail fast if there's an error
+    # Get workspace file count
     workspace_files = await workspace.ls(".")
-    logger.info(f"Files in workspace before export: {len(workspace_files)} entries")
-    logger.info(f"Workspace files: {workspace_files}")
+    logger.info(f"Files in workspace: {len(workspace_files)} entries")
     
     if not is_new:
         # For feedback mode, remove old game files but keep .git and debug
         logger.info("Removing old game files (keeping .git and debug)")
-        files_before_cleanup = list(game_path.iterdir())
-        logger.info(f"Files before cleanup: {[f.name for f in files_before_cleanup]}")
         
         for item in game_path.iterdir():
             if item.name not in ['.git', 'debug']:
                 if item.is_dir():
                     shutil.rmtree(item)
-                    logger.info(f"Removed directory: {item.name}")
                 else:
                     item.unlink()
-                    logger.info(f"Removed file: {item.name}")
-        
-        files_after_cleanup = list(game_path.iterdir())
-        logger.info(f"Files after cleanup: {[f.name for f in files_after_cleanup]}")
     
     # Export workspace to game folder
-    logger.info(f"Exporting workspace to {game_path}")
     await workspace.container().directory(".").export(str(game_path))
-    logger.info("Export completed")
     
-    # Verify files after export
-    files_after_export = list(game_path.iterdir())
-    logger.info(f"Files after export: {[f.name for f in files_after_export]}")
+    # Count exported files
     all_files = list(game_path.rglob("*"))
     file_count = len([f for f in all_files if f.is_file()])
-    logger.info(f"Total files after export: {file_count} files")
+    logger.info(f"Exported {file_count} files successfully")
     
     # Initialize or commit to git
     git_folder = game_path / ".git"
@@ -1022,7 +1175,7 @@ async def save_game_files(workspace: Workspace, session: Session, is_new: bool =
     session.last_modified = timestamp
     save_session(session, base_path=base_path)
     
-    logger.info(f"Game files saved successfully")
+    logger.info(f"✅ Game saved successfully with {file_count} files")
 
 
 def display_test_results(final_state: dict):

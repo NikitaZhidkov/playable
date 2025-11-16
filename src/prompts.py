@@ -192,41 +192,44 @@ Purpose:
    - Add comments in your code indicating where config values are used
    - If config loading fails, show error message in console
 
-4. Loading Pattern for TypeScript (in src/Game.ts or src/index.ts):
-```typescript
-interface GameConfig {{
-  movement: {{
-    speed: number;
-    rotationSpeed: number;
-    acceleration: number;
-  }};
-  physics: {{
-    gravity: number;
-    jumpForce: number;
-  }};
-  gameplay: {{
-    enemySpawnInterval: number;
-    maxEnemies: number;
-    scorePerCollect: number;
-  }};
-  // Add other sections as needed
-}}
+4. Loading Pattern for TypeScript:
+   IMPORTANT: DO NOT use fetch() to load config.json - it won't work with file:// protocol!
+   Instead, import it directly so it gets bundled into the HTML:
 
-let config: GameConfig;
+   ```typescript
+   // Import config.json directly (in src/Game.ts or wherever you need it)
+   import gameConfig from '../config.json';
 
-// Load configuration
-async function loadConfig(): Promise<GameConfig> {{
-  const response = await fetch('./config.json');
-  return await response.json();
-}}
+   interface GameConfig {{
+     movement: {{
+       speed: number;
+       rotationSpeed: number;
+       acceleration: number;
+     }};
+     physics: {{
+       gravity: number;
+       jumpForce: number;
+     }};
+     gameplay: {{
+       enemySpawnInterval: number;
+       maxEnemies: number;
+       scorePerCollect: number;
+     }};
+     // Add other sections as needed
+   }}
 
-// Initialize game after config is loaded
-loadConfig().then((loadedConfig) => {{
-  config = loadedConfig;
-  // Use config.movement.speed, config.physics.gravity, etc.
-  const game = new Game(width, height);
-}});
-```
+   export class Game {{
+     private config: GameConfig;
+
+     constructor(width: number, height: number) {{
+       // Config is already loaded via import
+       this.config = gameConfig as GameConfig;
+       // Use this.config.movement.speed, this.config.physics.gravity, etc.
+     }}
+   }}
+   ```
+
+   The build system will automatically bundle config.json into the output HTML, making it work offline with file:// protocol.
 
 5. Guidelines for Parameters:
    - Be specific: not "speed" but "playerSpeed", "enemySpeed", "bulletSpeed"
@@ -241,6 +244,11 @@ The goal is that a user can open config.json, modify values, refresh the game, a
 # Configuration file requirements for game modification
 CONFIG_FILE_MODIFY_REQUIREMENTS = """Game Configuration File Updates:
 When modifying the game based on feedback, you MUST update config.json to reflect new or changed mechanics.
+
+IMPORTANT: Config must be imported, not fetched!
+- Always use: import gameConfig from '../config.json';
+- Never use: fetch('./config.json') - it won't work with file:// protocol
+- The build system bundles imported JSON files into the final HTML
 
 Update Strategy:
 1. If feedback adds NEW mechanics with tunable parameters:
@@ -334,7 +342,9 @@ The project uses @smoud/playable-scripts for building. This means:
 - The build automatically bundles all code into a single HTML file
 - The build adds necessary metadata for ad networks (you don't need to handle this)
 - Asset imports (import img from 'assets/file.png') are resolved automatically
-- config.json, MANIFEST.json, and test_case_*.json are made available at runtime
+- JSON files can be imported directly (import config from '../config.json') and will be bundled
+- IMPORTANT: Always import config.json, never use fetch() - it won't work with file:// protocol
+- MANIFEST.json and test_case_*.json are made available at runtime for testing
 - NO need to manually create script tags or worry about bundling
 - Focus on writing clean TypeScript - the build system does the rest
 
@@ -379,14 +389,20 @@ TypeScript Game Class Pattern (src/Game.ts):
 import * as PIXI from 'pixi.js';
 import playerImg from 'assets/player.png';
 import bgMusic from 'assets/background.mp3';
+import gameConfig from '../config.json';
 
 export class Game {{
   private app: PIXI.Application;
   private player: PIXI.Sprite;
   private audio: HTMLAudioElement;
   private isPaused: boolean = true;
+  private config: any;
   
   constructor(width: number, height: number) {{
+    // IMPORTANT: Import config.json directly, don't use fetch()
+    // This ensures config is bundled and works with file:// protocol
+    this.config = gameConfig;
+    
     this.app = new PIXI.Application();
     // PixiJS v8 uses app.init() which returns a Promise
     this.app.init({{ width, height }}).then(() => {{
@@ -399,9 +415,9 @@ export class Game {{
     return this.app.canvas;
   }}
   
-  private async create(): Promise<void> {{
-    // Load configuration
-    const config = await fetch('./config.json').then(r => r.json());
+  private create(): void {{
+    // Config is already loaded via import
+    // Use this.config.movement.speed, etc.
     
     // Create game objects
     this.player = PIXI.Sprite.from(playerImg);
@@ -570,7 +586,9 @@ The project uses @smoud/playable-scripts for building:
 - The build automatically bundles all code into a single HTML file
 - The build adds necessary metadata for ad networks automatically
 - Asset imports are resolved by the build system
-- config.json and test_case_*.json are made available at runtime
+- JSON files can be imported directly (import config from '../config.json') and will be bundled
+- IMPORTANT: Always import config.json, never use fetch() - it won't work with file:// protocol
+- MANIFEST.json and test_case_*.json are made available at runtime for testing
 - NO need to manually manage script tags or bundling
 
 SDK Integration (@smoud/playable-sdk):

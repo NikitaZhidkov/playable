@@ -1,0 +1,7 @@
+{
+  "board": ["x", "x", "x", "o", "o", "empty", "empty", "empty", "empty"],
+  "moveCount": 5,
+  "score": 100,
+  "gameResult": "win",
+  "expectedOutput": "3x3 board with player X winning on top row (three X marks in a line), score showing 100%, game won state with end card visible"
+}

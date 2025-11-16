@@ -61,6 +61,18 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
         if retry_count > 0:
             span_name += f" - retry {retry_count}"
         
+        # Prepare last message for logging (show what we're asking the LLM)
+        last_user_message = None
+        for msg in reversed(state["messages"]):
+            if hasattr(msg, 'type') and msg.type == "human":
+                content = msg.content if hasattr(msg, 'content') else str(msg)
+                # Truncate very long messages
+                if isinstance(content, str) and len(content) > 500:
+                    last_user_message = f"{content[:500]}... (length: {len(content)})"
+                else:
+                    last_user_message = content
+                break
+        
         # Wrap LLM call with Logfire span for LangGraph context
         with logfire.span(
             span_name,
@@ -69,8 +81,9 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             retry_count=retry_count,
             task_description=task_description[:100] if task_description else "",
             has_asset_context=bool(state.get("asset_context")),
-            message_count=len(state["messages"])
-        ):
+            message_count=len(state["messages"]),
+            last_user_message=last_user_message
+        ) as span:
             # Call LLM with appropriate system prompt
             response = llm_client.call(
                 messages=state["messages"],
@@ -80,6 +93,33 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             
             # Parse response
             parsed_content = llm_client.parse_anthropic_response(response)
+            
+            # Log LLM response content at top level
+            response_summary = []
+            for item in parsed_content:
+                if isinstance(item, TextRaw):
+                    text_preview = item.text[:300] if len(item.text) > 300 else item.text
+                    response_summary.append({
+                        "type": "text",
+                        "content": text_preview + ("..." if len(item.text) > 300 else ""),
+                        "full_length": len(item.text)
+                    })
+                elif isinstance(item, ToolUse):
+                    response_summary.append({
+                        "type": "tool_use",
+                        "name": item.name,
+                        "args_keys": list(item.input.keys()) if isinstance(item.input, dict) else []
+                    })
+                elif isinstance(item, ThinkingBlock):
+                    thinking_preview = item.thinking[:200] if len(item.thinking) > 200 else item.thinking
+                    response_summary.append({
+                        "type": "thinking",
+                        "content": thinking_preview + ("..." if len(item.thinking) > 200 else ""),
+                        "full_length": len(item.thinking)
+                    })
+            
+            # Add response summary to span
+            span.set_attribute("llm_response", response_summary)
         
         # Extract text and tool calls
         text_parts = []
@@ -119,15 +159,35 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
         # Get parsed content from previous node
         parsed_content = state.get("_parsed_content", [])
         
-        # Extract tool names for logging
-        tool_names = [
-            item.name for item in parsed_content 
+        # Extract tool uses for logging
+        tool_uses = [
+            item for item in parsed_content 
             if isinstance(item, ToolUse)
         ]
         
         # Create a descriptive span name with the tools being executed
+        tool_names = [t.name for t in tool_uses]
         tools_str = ", ".join(tool_names) if tool_names else "no tools"
         span_name = f"Execute tools: {tools_str}"
+        
+        # Prepare tool details for logging (args and results)
+        tool_details = []
+        for tool_use in tool_uses:
+            # Create a concise representation of tool args
+            args_repr = {}
+            if isinstance(tool_use.input, dict):
+                for key, value in tool_use.input.items():
+                    if isinstance(value, str) and len(value) > 100:
+                        args_repr[key] = f"{value[:100]}... (length: {len(value)})"
+                    else:
+                        args_repr[key] = value
+            else:
+                args_repr = tool_use.input
+            
+            tool_details.append({
+                "name": tool_use.name,
+                "args": args_repr
+            })
         
         # Wrap tools execution with Logfire span
         with logfire.span(
@@ -135,10 +195,29 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             langgraph_node="tools",
             tool_count=len(tool_names),
             tools=tool_names,
+            tool_details=tool_details,
             is_feedback_mode=state.get("is_feedback_mode", False)
-        ):
+        ) as span:
             # Execute tools
             tool_results, is_completed = await file_ops.run_tools(parsed_content)
+            
+            # Log tool results in the span
+            results_summary = []
+            for tool_result in tool_results:
+                result_content = tool_result.tool_result.content
+                if isinstance(result_content, str) and len(result_content) > 200:
+                    result_preview = f"{result_content[:200]}... (length: {len(result_content)})"
+                else:
+                    result_preview = result_content
+                
+                results_summary.append({
+                    "tool": tool_result.tool_result.name,
+                    "result": result_preview,
+                    "is_error": tool_result.tool_result.is_error
+                })
+            
+            # Add results to the span attributes
+            span.set_attribute("tool_results", results_summary)
             
             # Convert to tool messages
             tool_messages = []
@@ -406,7 +485,7 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             return END
         
         # If we've exceeded max retries, give up
-        if retry_count >= 5:
+        if retry_count > 5:
             logger.warning(f"Maximum retries (5) reached. Ending with test failures.")
             return END
         

@@ -1,0 +1,7 @@
+{
+  "board": ["empty", "empty", "empty", "empty", "empty", "empty", "empty", "empty", "empty"],
+  "moveCount": 0,
+  "score": 0,
+  "gameResult": null,
+  "expectedOutput": "Empty 3x3 tic tac toe board with no marks, score showing 0%, game ready for first player move"
+}

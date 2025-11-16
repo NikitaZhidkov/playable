@@ -1,0 +1,7 @@
+{
+  "board": ["x", "empty", "empty", "empty", "empty", "empty", "empty", "empty", "o"],
+  "moveCount": 2,
+  "score": 40,
+  "gameResult": null,
+  "expectedOutput": "3x3 board with player X at top-left (blue), AI O at bottom-right (red), score showing 40%, game in progress"
+}
