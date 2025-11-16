@@ -72,50 +72,58 @@ logger = logging.getLogger(__name__)
 
 
 async def initialize_workspace(client: dagger.Client, context_dir: Path | None = None) -> Workspace:
-    """Initialize a workspace for pixi.js game development."""
-    logger.info("Initializing workspace...")
+    """Initialize a workspace for TypeScript game development with playable-template-pixi."""
+    logger.info("Initializing workspace with TypeScript template...")
     
-    # If context_dir is provided, load existing game files
-    context = None
+    # Load the template from templates/playable-template-pixi
+    template_path = Path("templates/playable-template-pixi")
+    logger.info(f"Loading template from: {template_path}")
+    template_dir = client.host().directory(str(template_path))
+    
+    # Verify template loaded
+    template_entries = await template_dir.entries()
+    logger.info(f"Template files: {len(template_entries)} entries")
+    logger.info(f"Template contents: {template_entries}")
+    
+    # Create workspace with template and install dependencies
+    workspace = await Workspace.create(
+        client=client,
+        base_image="node:20-alpine",  # Node.js has full worker_threads support needed by webpack
+        context=template_dir,  # Start with template
+        setup_cmd=[
+            ["apk", "add", "--no-cache", "git"],
+            ["npm", "install"],  # Install dependencies with npm
+        ],
+        protected=[],
+        allowed=[]
+    )
+    
+    logger.info("Template installed, dependencies installed")
+    
+    # If loading existing game, copy files on top of template
     if context_dir and context_dir.exists():
-        logger.info(f"Loading context from: {context_dir}")
+        logger.info(f"Loading existing game from: {context_dir}")
         
         # List files that exist on disk before loading
         disk_files = list(context_dir.rglob("*"))
         disk_file_count = len([f for f in disk_files if f.is_file()])
         logger.info(f"Files on disk in {context_dir}: {disk_file_count} files")
         
-        # Log sample files (first 10)
-        sample_files = [str(f.relative_to(context_dir)) for f in disk_files if f.is_file()][:10]
-        if sample_files:
-            logger.info(f"Sample files on disk: {sample_files}")
-        
         # Load directory from host
-        # Use exclude=[] to ensure all files are loaded (don't use default git ignore behavior)
         context = client.host().directory(str(context_dir), exclude=[])
         
-        # Verify what Dagger sees in the directory - fail fast if there's an error
+        # Verify what Dagger sees
         entries = await context.entries()
         logger.info(f"Files loaded by Dagger: {len(entries)} entries")
-        logger.info(f"Dagger entries: {entries}")
+        
+        # Copy existing game files over template
+        workspace = workspace.copy_directory(context, ".")
+        logger.info("Existing game files copied over template")
     
-    # Create workspace with Bun base image
-    workspace = await Workspace.create(
-        client=client,
-        base_image="oven/bun:1.2.5-alpine",
-        context=context,
-        setup_cmd=[
-            ["apk", "add", "--no-cache", "git"]
-        ],
-        protected=[],  # No protected files for new projects
-        allowed=[]  # Allow all files
-    )
-    
-    # Verify files in workspace after creation
-    if context_dir:
-        workspace_files = await workspace.ls(".")
-        logger.info(f"Files in workspace after creation: {len(workspace_files)} entries")
-        logger.info(f"Workspace files: {workspace_files}")
+    # Verify final workspace
+    workspace_files = await workspace.ls(".")
+    logger.info(f"Final workspace: {len(workspace_files)} entries")
+    logger.info(f"Workspace files: {workspace_files}")
     
     logger.info("Workspace initialized successfully")
     return workspace
@@ -629,7 +637,8 @@ Please create a complete, working pixi.js game based on this detailed game desig
             print("✅ Changes merged to master branch")
         
         print(f"✅ Game saved to: {get_game_path(session.session_id)}")
-        print(f"✅ To view your game, open {get_game_path(session.session_id)}/index.html in a browser")
+        print(f"   📂 Source code: {get_game_path(session.session_id)}/src/")
+        print(f"   🎮 Built game: {get_game_path(session.session_id)}/dist/index.html")
         print()
         
         return session
@@ -881,7 +890,8 @@ Please implement the requested changes. You have access to all the current game 
             print("✅ Changes merged to master branch")
         
         print(f"✅ Game updated in: {get_game_path(session.session_id)}")
-        print(f"✅ To view your game, open {get_game_path(session.session_id)}/index.html in a browser")
+        print(f"   📂 Source code: {get_game_path(session.session_id)}/src/")
+        print(f"   🎮 Built game: {get_game_path(session.session_id)}/dist/index.html")
         print()
         
         return session

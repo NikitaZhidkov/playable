@@ -1,8 +1,9 @@
 """
 Asset pack management for game development.
-Handles asset discovery, VLM-based description generation, XML creation, and base64 encoding.
+Handles asset discovery, file-based assets for TypeScript imports, and description management.
 """
 import logging
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
@@ -690,53 +691,76 @@ def format_asset_context_for_prompt(
 def prepare_pack_for_workspace(
     pack_name: str,
     workspace_assets_dir: Path,
-    source_assets_dir: Path = Path("assets")
+    source_assets_dir: Path = Path("assets"),
+    source_sounds_dir: Path = Path("Sounds")
 ) -> Optional[str]:
     """
-    Prepare an asset pack for use in workspace.
-    Generates/validates descriptions, creates base64 assets, and copies assets.js to workspace.
+    Copy asset pack files to workspace for TypeScript imports.
+    Handles both visual assets (from assets/) and audio (from Sounds/).
     
     Args:
         pack_name: Name of the pack to prepare
         workspace_assets_dir: Path to workspace assets directory
-        source_assets_dir: Path to source assets directory
+        source_assets_dir: Path to source assets directory (for sprites)
+        source_sounds_dir: Path to source sounds directory (for audio)
     
     Returns:
-        Formatted asset context for prompt (WITHOUT base64 data), or None if failed
+        Formatted asset info string with descriptions, or None if no assets found
     """
-    pack_path = source_assets_dir / pack_name
-    
-    if not pack_path.exists():
-        logger.error(f"Pack directory not found: {pack_path}")
-        return None
-    
-    logger.info(f"Preparing pack '{pack_name}' with base64 encoding")
-    
-    # Get or create descriptions
-    xml_content = get_or_create_pack_descriptions(pack_path, pack_name)
-    
-    # Get or create base64-encoded assets (with caching)
-    base64_assets = get_or_create_base64_assets(pack_path)
-    
-    if not base64_assets:
-        logger.warning(f"No assets found in pack {pack_name}")
-        return None
-    
-    logger.info(f"Prepared {len(base64_assets)} base64-encoded assets")
-    
     # Create workspace assets directory
     workspace_assets_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create assets.js file with all base64 data
-    assets_js_content = create_assets_js_file(base64_assets, pack_name)
-    assets_js_path = workspace_assets_dir / "assets.js"
-    assets_js_path.write_text(assets_js_content, encoding='utf-8')
-    logger.info(f"Created assets.js with {len(base64_assets)} assets ({len(assets_js_content)} characters)")
+    sprites = []
+    sounds = []
     
-    # Format context for prompt (no base64 data embedded)
-    asset_context = format_asset_context_for_prompt(xml_content, pack_name)
+    # Copy sprite assets from assets/PackName/
+    sprite_pack_path = source_assets_dir / pack_name
+    if sprite_pack_path.exists():
+        for file in sprite_pack_path.iterdir():
+            if file.is_file() and file.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
+                shutil.copy2(file, workspace_assets_dir / file.name)
+                sprites.append(file.name)
+                logger.info(f"Copied sprite: {file.name}")
     
-    return asset_context
+    # Copy sound assets from Sounds/PackName/
+    sound_pack_path = source_sounds_dir / pack_name
+    if sound_pack_path.exists():
+        for file in sound_pack_path.iterdir():
+            if file.is_file() and file.suffix.lower() in ['.mp3', '.wav', '.ogg']:
+                shutil.copy2(file, workspace_assets_dir / file.name)
+                sounds.append(file.name)
+                logger.info(f"Copied sound: {file.name}")
+    
+    if not sprites and not sounds:
+        logger.warning(f"No assets found for pack: {pack_name}")
+        return None
+    
+    # Read sprite descriptions
+    sprite_desc_xml_path = sprite_pack_path / "description.xml" if sprite_pack_path.exists() else None
+    sprite_xml_content = ""
+    if sprite_desc_xml_path and sprite_desc_xml_path.exists():
+        sprite_xml_content = sprite_desc_xml_path.read_text()
+        logger.info(f"Loaded sprite descriptions from {sprite_desc_xml_path}")
+    
+    # Read sound descriptions
+    sound_desc_xml_path = sound_pack_path / "description.xml" if sound_pack_path.exists() else None
+    sound_xml_content = ""
+    if sound_desc_xml_path and sound_desc_xml_path.exists():
+        sound_xml_content = sound_desc_xml_path.read_text()
+        logger.info(f"Loaded sound descriptions from {sound_desc_xml_path}")
+    
+    # Format asset info for prompt
+    asset_info = f"Pack: {pack_name}\n"
+    asset_info += f"Sprites ({len(sprites)}): {', '.join(sprites)}\n"
+    if sprite_xml_content:
+        asset_info += f"\nSprite Descriptions:\n{sprite_xml_content}\n"
+    
+    asset_info += f"\nSounds ({len(sounds)}): {', '.join(sounds)}\n"
+    if sound_xml_content:
+        asset_info += f"\nSound Descriptions:\n{sound_xml_content}\n"
+    
+    logger.info(f"Prepared {len(sprites)} sprites and {len(sounds)} sounds for TypeScript imports")
+    return asset_info
 
 
 def list_available_sound_packs(sounds_dir: Path = Path("Sounds")) -> List[str]:

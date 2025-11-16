@@ -74,12 +74,29 @@ Each test case JSON must include:
   - Game-specific state data matching the structure in MANIFEST.json
   - "expectedOutput": A clear description of what should be visible when this state is loaded
 
-window.loadTestCase(data) Function:
-Implement this function in your game.js:
+window.loadTestCase(data) Function (TypeScript):
+Implement this in your Game class and expose it globally:
+  
+  1. Add a public method to your Game class (src/Game.ts):
+     ```typescript
+     public loadTestCase(data: any): void {{
+       // Load game state from test data
+       if (data.score !== undefined) this.score = data.score;
+       // ... load other state properties
+       
+       // MUST pause/freeze the game after loading
+       this.pause();  // Or stop animations/timers/game loop
+     }}
+     ```
+  
+  2. Expose it globally in src/index.ts (after creating game instance):
+     ```typescript
+     (window as any).loadTestCase = (data: any) => game.loadTestCase(data);
+     ```
+  
   - This function receives test case JSON data
-  - It should load the game state from the data
   - It MUST pause/freeze the game after loading (stop animations, game loops, timers)
-  - Make this function easy to remove for production (isolate it clearly)
+  - Make this function easy to remove for production (isolate the global exposure clearly)
 
 Test Case Ordering (simple to complex):
   - test_case_1: Initial/start state (SIMPLEST)
@@ -113,13 +130,20 @@ Example test_case_1.json (SIMPLE start state):
 TEST_CASE_CREATE_REQUIREMENTS = f"""Test Case Requirements:
 You MUST create 1-5 test cases to validate different game states. Test cases help catch visual bugs.
 
-1. Create the following files at the ROOT level (same directory as index.html):
+1. Create the following files at the WORKSPACE ROOT (same level as package.json, NOT in src/):
    - MANIFEST.json - Describes your game state structure
    - test_case_1.json through test_case_5.json (1-5 test cases)
 
-{TEST_CASE_BASE_REQUIREMENTS}
+2. File placement for TypeScript project:
+   - Your TypeScript source files go in src/ (Game.ts, index.ts, index.html, index.css)
+   - Config and test files go at workspace root (config.json, MANIFEST.json, test_case_*.json)
+   - The build system automatically bundles everything and makes these files accessible
+   
+3. Loading test cases in TypeScript:
+   - Use fetch('./test_case_1.json') to load test cases
+   - The files will be available at runtime after build
 
-Test cases are stored at the ROOT level (same directory as index.html).
+{TEST_CASE_BASE_REQUIREMENTS}
 """
 
 # Configuration file requirements for game creation
@@ -131,7 +155,7 @@ Purpose:
 - Enable rapid iteration on game feel and balance
 - Provide a clear interface for adjusting gameplay parameters
 
-1. Create config.json at the ROOT level (same directory as index.html) with ALL tunable gameplay parameters:
+1. Create config.json at the WORKSPACE ROOT (same level as package.json, NOT in src/) with ALL tunable gameplay parameters:
    - Movement parameters (speed, acceleration, rotation speed, drag, friction)
    - Physics parameters (gravity, jump force, collision sizes, bounce factors)
    - Timing parameters (spawn intervals, cooldowns, animation durations)
@@ -168,20 +192,39 @@ Purpose:
    - Add comments in your code indicating where config values are used
    - If config loading fails, show error message in console
 
-4. Loading Pattern (add to your game.js):
-```javascript
-let config = null;
+4. Loading Pattern for TypeScript (in src/Game.ts or src/index.ts):
+```typescript
+interface GameConfig {{
+  movement: {{
+    speed: number;
+    rotationSpeed: number;
+    acceleration: number;
+  }};
+  physics: {{
+    gravity: number;
+    jumpForce: number;
+  }};
+  gameplay: {{
+    enemySpawnInterval: number;
+    maxEnemies: number;
+    scorePerCollect: number;
+  }};
+  // Add other sections as needed
+}}
+
+let config: GameConfig;
 
 // Load configuration
-async function loadConfig() {{
-  const response = await fetch('config.json');
-  config = await response.json();
+async function loadConfig(): Promise<GameConfig> {{
+  const response = await fetch('./config.json');
+  return await response.json();
 }}
 
 // Initialize game after config is loaded
-loadConfig().then(() => {{
+loadConfig().then((loadedConfig) => {{
+  config = loadedConfig;
   // Use config.movement.speed, config.physics.gravity, etc.
-  startGame();
+  const game = new Game(width, height);
 }});
 ```
 
@@ -226,7 +269,7 @@ Remember: The config.json should always represent the current tunable parameters
 # Test case requirements for game modification/feedback
 TEST_CASE_MODIFY_REQUIREMENTS = f"""Test Case Requirements:
 You MUST create 1-5 test cases to validate different game states. Test cases help catch visual bugs.
-When modifying game functionality, you MUST update the test cases at the ROOT level:
+When modifying game functionality, you MUST update the test cases at the WORKSPACE ROOT (same level as package.json):
 
 1. Update MANIFEST.json if the game state structure changes (add new variables/fields)
 
@@ -251,11 +294,12 @@ When modifying game functionality, you MUST update the test cases at the ROOT le
    - Main game features to ensure they still work
    - ORDER: Keep test_case_1 simple, increase complexity up to test_case_5
 
-5. Maintain the naming convention: test_case_1.json through test_case_5.json at ROOT level
+5. Maintain the naming convention: test_case_1.json through test_case_5.json at WORKSPACE ROOT
 
 {TEST_CASE_BASE_REQUIREMENTS}
 
-Test cases are stored at the ROOT level (same directory as index.html).
+File Location: Test cases are stored at WORKSPACE ROOT (same level as package.json, NOT in src/).
+The build system automatically makes them accessible to the built game.
 
 REMEMBER: Passing tests are correct - don't touch them! Only fix failing tests.
 """
@@ -264,52 +308,133 @@ REMEMBER: Passing tests are correct - don't touch them! Only fix failing tests.
 # System Prompts
 # ============================================================================
 
-SYSTEM_PIXI_GAME_DEVELOPER_PROMPT = f"""You are an expert pixi.js game developer. Your task is to create complete, playable ads games using pixi.js.
+SYSTEM_PIXI_GAME_DEVELOPER_PROMPT = f"""You are an expert TypeScript game developer specializing in playable ads using PixiJS and @smoud/playable-sdk.
 
 PLAYABLE ADS REQUIREMENT:
-In playable ads, the game MUST be visible immediately when opened, but PAUSED until the first touch/click interaction.
-- NO main menu screens
-- NO "tap to start" buttons or screens
-- NO loading screens that require user interaction
-- The game scene/level MUST be visible from the start
-- The game MUST automatically pause/freeze until the user's first touch/click
-- After first touch, the game should start playing normally
+Games must be visible immediately but PAUSED until first user interaction.
+- NO main menu screens or "tap to start" buttons
+- Game scene visible from the start
+- Automatically pause until first touch/click
+- SDK handles lifecycle management
 
-When creating a game:
-1. Create a proper project structure with separate files:
-   - index.html - Main HTML file with CDN imports
-   - *.js - JavaScript files with code
-   - *.css - CSS styling files
-2. Write clean, well-structured JavaScript code
-3. Include game logic, graphics, and interactivity
-4. Add comments explaining key parts of the code
-5. Make games that are visually appealing and fun to play
-6. Consider responsive design and different screen sizes
-7. Game have to support full stop/pause flag for test cases.
-8. Add background music and sound effects when appropriate to enhance the experience
+Project Structure (TypeScript):
+src/
+  index.ts       - SDK initialization and event binding
+  Game.ts        - Main game class with PixiJS logic
+  index.html     - HTML template
+  index.css      - Styles
+assets/          - Game assets (PNG, MP3, etc.)
+config.json      - Gameplay parameters (root level)
+MANIFEST.json    - Game state structure (root level)
+test_case_*.json - Test cases (root level)
 
-Project Structure Requirements:
-- index.html should load the CSS and JS files using <link> and <script> tags
-- Keep JavaScript game logic in separate .js file(s)
-- Keep CSS styling in separate .css file(s)
-- Use proper HTML5 structure with DOCTYPE, meta tags, etc.
+SDK Integration (@smoud/playable-sdk):
+Always use the SDK for lifecycle management:
+- sdk.init(callback) - Initialize with container dimensions
+- sdk.on('resize', handler) - Handle container resize
+- sdk.on('pause', handler) - Pause gameplay
+- sdk.on('resume', handler) - Resume gameplay  
+- sdk.on('volume', handler) - Adjust audio volume (0-1)
+- sdk.on('finish', handler) - Game completed
+- sdk.on('interaction', handler) - Track user interactions
+- sdk.start() - Mark resources loaded, start playable
+- sdk.install() - Trigger app store redirect
+- sdk.finish() - Mark playable complete
 
-CRITICAL - PixiJS API (Version 8.x):
-Use app.view NOT app.canvas - app.canvas does NOT exist in PixiJS 8.x!
-  ✓ CORRECT: document.getElementById('gameContainer').appendChild(app.view);
-  ✓ CORRECT: app.view.addEventListener('pointerdown', (e) => {{ ... }});
-  ✗ WRONG: document.body.appendChild(app.canvas); // ERROR: Cannot read properties of undefined
-  ✗ WRONG: app.canvas.addEventListener(...); // app.canvas is undefined!
+TypeScript Game Class Pattern:
+```typescript
+import {{ sdk }} from '@smoud/playable-sdk';
+import * as PIXI from 'pixi.js';
+import playerImg from 'assets/player.png';
+import bgMusic from 'assets/background.mp3';
+
+export class Game {{
+  private app: PIXI.Application;
+  private player: PIXI.Sprite;
+  private audio: HTMLAudioElement;
+  private isPaused: boolean = true;
+  
+  constructor(width: number, height: number) {{
+    this.app = new PIXI.Application();
+    this.app.init({{ width, height }}).then(() => {{
+      this.create();
+    }});
+  }}
+  
+  public getCanvas(): HTMLCanvasElement {{
+    return this.app.canvas;
+  }}
+  
+  private create(): void {{
+    // Create game objects
+    const sprite = PIXI.Sprite.from(playerImg);
+    this.app.stage.addChild(sprite);
+    
+    // Setup audio
+    this.audio = new Audio(bgMusic);
+    this.audio.loop = true;
+    this.audio.volume = 0.5;
+    
+    // Start paused (playable ads requirement)
+    this.pause();
+    
+    // Mark ready
+    sdk.start();
+  }}
+  
+  public resize(width: number, height: number): void {{
+    this.app.renderer.resize(width, height);
+    // Update game object positions based on new size
+  }}
+  
+  public pause(): void {{
+    this.isPaused = true;
+    this.app.ticker.stop();
+    this.audio.pause();
+  }}
+  
+  public resume(): void {{
+    this.isPaused = false;
+    this.app.ticker.start();
+    this.audio.play();
+  }}
+  
+  public volume(value: number): void {{
+    this.audio.volume = value;
+  }}
+  
+  public finish(): void {{
+    this.pause();
+    sdk.finish();
+  }}
+}}
+```
+
+Asset Import Syntax:
+```typescript
+// Import images
+import playerImg from 'assets/player.png';
+import bgImg from 'assets/background.png';
+
+// Import audio
+import bgMusic from 'assets/background.mp3';
+import jumpSound from 'assets/jump.mp3';
+
+// Use in code
+const sprite = PIXI.Sprite.from(playerImg);
+const audio = new Audio(bgMusic);
+```
 
 {TOOL_USAGE_RULES}
 
 Work step by step:
-1. Plan the game structure
-2. Create the HTML file (index.html) with proper structure
-3. Create the CSS file(s) with game styling
-4. Create the JavaScript file(s) with game code
-5. Create test cases 
-6. Call the 'complete' tool when finished
+1. Plan the game structure and mechanics
+2. Create/modify src/Game.ts with game logic
+3. Create/modify src/index.ts with SDK integration
+4. Update src/index.html and src/index.css if needed
+5. Create test cases (test_case_*.json in root)
+6. Create config.json and MANIFEST.json
+7. Call the 'complete' tool when finished
 
 Always create working, complete games. Don't leave placeholders or TODOs.
 
@@ -322,26 +447,34 @@ Always create working, complete games. Don't leave placeholders or TODOs.
 """
 
 
-SYSTEM_PIXI_FEEDBACK_PROMPT = f"""You are an expert pixi.js game developer working on modifying an existing game based on user feedback.
+SYSTEM_PIXI_FEEDBACK_PROMPT = f"""You are an expert TypeScript game developer working on modifying an existing playable ad game based on user feedback.
 
 PLAYABLE ADS REQUIREMENT:
-In playable ads, the game MUST be visible immediately when opened, but PAUSED until the first touch/click interaction.
-- NO main menu screens
-- NO "tap to start" buttons or screens
-- NO loading screens that require user interaction
-- The game scene/level MUST be visible from the start
-- The game MUST automatically pause/freeze until the user's first touch/click
-- After first touch, the game should start playing normally
+Games must be visible immediately but PAUSED until first user interaction.
+- NO main menu screens or "tap to start" buttons
+- Game scene visible from the start
+- Automatically pause until first touch/click
+- SDK handles lifecycle management
 
-Your task is to fix issues or add new features to the existing game files according to the user's request.
+Your task is to fix issues or add new features to the existing TypeScript game files according to the user's request.
 Remember that you can add background music and sound effects to enhance the game experience.
 
-CRITICAL - PixiJS API (Version 8.x):
-Use app.view NOT app.canvas - app.canvas does NOT exist in PixiJS 8.x!
-  ✓ CORRECT: document.getElementById('gameContainer').appendChild(app.view);
-  ✓ CORRECT: app.view.addEventListener('pointerdown', (e) => {{ ... }});
-  ✗ WRONG: document.body.appendChild(app.canvas); // ERROR: Cannot read properties of undefined
-  ✗ WRONG: app.canvas.addEventListener(...); // app.canvas is undefined!
+Project Structure (TypeScript):
+src/
+  index.ts       - SDK initialization and event binding
+  Game.ts        - Main game class with PixiJS logic
+  index.html     - HTML template
+  index.css      - Styles
+assets/          - Game assets (PNG, MP3, etc.)
+config.json      - Gameplay parameters (root level)
+MANIFEST.json    - Game state structure (root level)
+test_case_*.json - Test cases (root level)
+
+Asset Imports:
+```typescript
+import playerImg from 'assets/player.png';
+import bgMusic from 'assets/background.mp3';
+```
 
 {TOOL_USAGE_RULES}
 
@@ -700,6 +833,7 @@ In section 11) Assets & Naming, specify how to use PixiJS Graphics API (rectangl
 
 GAME_DESIGNER_ASSET_INSTRUCTIONS_WITH_PACK = """For each visual element in the game, specify which asset file from the provided pack should be used.
 List the mapping between game elements and asset files (e.g., "Player: player_car.png", "Obstacle: obstacle_01.png").
+Assets will be imported in TypeScript using: import assetName from 'assets/filename.png';
 """
 
 GAME_DESIGNER_ASSET_INSTRUCTIONS_NO_PACK = """For each visual element in the game, specify how to create it using PixiJS Graphics primitives.
