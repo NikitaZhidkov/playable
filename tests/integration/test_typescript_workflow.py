@@ -178,6 +178,79 @@ async def test_build_with_type_error():
         print("✅ TypeScript type checker correctly caught type error")
 
 
+@pytest.mark.asyncio
+async def test_validate_build_function_success():
+    """Test 6: Integration test for validate_build() function directly"""
+    print("\n=== Test 6: validate_build() Function ===")
+    
+    from src.validators.build_validator import validate_build
+    
+    async with dagger.Connection() as client:
+        workspace = await initialize_workspace(client, context_dir=None)
+        
+        # Add a simple test case file
+        test_case_content = '{"expectedOutput": "test", "input": {}}'
+        workspace = workspace.write_file("test_case_1.json", test_case_content)
+        
+        # Run validate_build
+        result = await validate_build(workspace, retry_count=0)
+        
+        print(f"Build validation result: passed={result.passed}")
+        
+        # Assertions
+        assert result.passed is True, f"Build should pass: {result.error_message}"
+        assert result.failures == [], f"Should have no failures: {result.failures}"
+        assert result.retry_count == 0, "Retry count should be 0 on success"
+        assert result.workspace is not None, "Should return updated workspace"
+        
+        # Verify dist/ was created with expected files
+        dist_files = await result.workspace.ls("dist")
+        assert "index.html" in dist_files, "index.html should be in dist/"
+        assert "config.json" in dist_files, "config.json should be copied to dist/"
+        assert "MANIFEST.json" in dist_files, "MANIFEST.json should be copied to dist/"
+        assert "test_case_1.json" in dist_files, "test_case_1.json should be copied to dist/"
+        
+        print("✅ validate_build() integration test passed")
+
+
+@pytest.mark.asyncio
+async def test_validate_build_function_type_error():
+    """Test 7: Integration test for validate_build() with type errors"""
+    print("\n=== Test 7: validate_build() with Type Errors ===")
+    
+    from src.validators.build_validator import validate_build
+    
+    async with dagger.Connection() as client:
+        workspace = await initialize_workspace(client, context_dir=None)
+        
+        # Add test case
+        test_case_content = '{"expectedOutput": "test", "input": {}}'
+        workspace = workspace.write_file("test_case_1.json", test_case_content)
+        
+        # Introduce a type error
+        game_ts = await workspace.read_file("src/Game.ts")
+        modified_game = game_ts.replace(
+            "private app: PIXI.Application;",
+            "private app: PIXI.Application;\n  private errorTest: number = 'this is wrong';"
+        )
+        workspace = workspace.write_file("src/Game.ts", modified_game)
+        
+        # Run validate_build
+        result = await validate_build(workspace, retry_count=0)
+        
+        print(f"Build validation result: passed={result.passed}")
+        print(f"Error message: {result.error_message[:100] if result.error_message else 'None'}")
+        
+        # Assertions
+        assert result.passed is False, "Build should fail with type error"
+        assert result.error_message is not None, "Should have error message"
+        assert "TypeScript Type Check Failed" in result.error_message, "Should mention type check failure"
+        assert len(result.failures) > 0, "Should have failures"
+        assert result.retry_count == 1, "Retry count should increment"
+        
+        print("✅ validate_build() correctly detected type error")
+
+
 if __name__ == "__main__":
     # Run tests individually for debugging
     import sys
@@ -191,4 +264,6 @@ if __name__ == "__main__":
     print("  pytest tests/integration/test_typescript_workflow.py::test_build_process_succeeds -v")
     print("  pytest tests/integration/test_typescript_workflow.py::test_build_with_simple_modification -v")
     print("  pytest tests/integration/test_typescript_workflow.py::test_build_with_type_error -v")
+    print("  pytest tests/integration/test_typescript_workflow.py::test_validate_build_function_success -v")
+    print("  pytest tests/integration/test_typescript_workflow.py::test_validate_build_function_type_error -v")
 

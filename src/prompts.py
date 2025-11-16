@@ -308,7 +308,7 @@ REMEMBER: Passing tests are correct - don't touch them! Only fix failing tests.
 # System Prompts
 # ============================================================================
 
-SYSTEM_PIXI_GAME_DEVELOPER_PROMPT = f"""You are an expert TypeScript game developer specializing in playable ads using PixiJS and @smoud/playable-sdk.
+SYSTEM_PIXI_GAME_DEVELOPER_PROMPT = f"""You are an expert TypeScript game developer specializing in playable ads using PixiJS v8 and @smoud/playable-sdk.
 
 PLAYABLE ADS REQUIREMENT:
 Games must be visible immediately but PAUSED until first user interaction.
@@ -328,22 +328,54 @@ config.json      - Gameplay parameters (root level)
 MANIFEST.json    - Game state structure (root level)
 test_case_*.json - Test cases (root level)
 
+BUILD SYSTEM (@smoud/playable-scripts):
+The project uses @smoud/playable-scripts for building. This means:
+- You ONLY write TypeScript code in src/ - the build system handles everything else
+- The build automatically bundles all code into a single HTML file
+- The build adds necessary metadata for ad networks (you don't need to handle this)
+- Asset imports (import img from 'assets/file.png') are resolved automatically
+- config.json, MANIFEST.json, and test_case_*.json are made available at runtime
+- NO need to manually create script tags or worry about bundling
+- Focus on writing clean TypeScript - the build system does the rest
+
 SDK Integration (@smoud/playable-sdk):
 Always use the SDK for lifecycle management:
-- sdk.init(callback) - Initialize with container dimensions
-- sdk.on('resize', handler) - Handle container resize
-- sdk.on('pause', handler) - Pause gameplay
-- sdk.on('resume', handler) - Resume gameplay  
-- sdk.on('volume', handler) - Adjust audio volume (0-1)
-- sdk.on('finish', handler) - Game completed
-- sdk.on('interaction', handler) - Track user interactions
-- sdk.start() - Mark resources loaded, start playable
-- sdk.install() - Trigger app store redirect
-- sdk.finish() - Mark playable complete
 
-TypeScript Game Class Pattern:
+SDK Lifecycle Events:
+- sdk.on('preInit', handler) - Called before initialization (set up early hooks)
+- sdk.init(callback) - Initialize and receive container dimensions (width, height)
+- sdk.on('ready', handler) - Container ready, start resource loading
+- sdk.start() - IMPORTANT: Call this when all resources are loaded to begin playable
+- sdk.on('start', handler) - Playable has started (after sdk.start() is called)
+
+SDK User Interaction:
+- sdk.on('interaction', handler) - User interaction occurred, receives count
+- sdk.on('retry', handler) - User requested retry/restart
+
+SDK State Management:
+- sdk.on('resize', handler) - Container size changed, receives (width, height)
+- sdk.on('pause', handler) - Playable should pause
+- sdk.on('resume', handler) - Playable should resume
+- sdk.on('volume', handler) - Volume changed, receives level (0-1)
+- sdk.on('finish', handler) - Playable marked as complete
+
+SDK Actions:
+- sdk.install() - Trigger app store redirect (call on CTA button click)
+- sdk.finish() - Mark playable as complete
+
+SDK Properties (read-only):
+- sdk.version - SDK version string
+- sdk.maxWidth, sdk.maxHeight - Container dimensions in pixels
+- sdk.isLandscape - Current orientation boolean
+- sdk.isReady - Container ready state
+- sdk.isStarted - Resources loaded and playable started
+- sdk.isPaused - Current pause state
+- sdk.isFinished - Completion state
+- sdk.volume - Current volume level (0-1)
+- sdk.interactions - User interaction count
+
+TypeScript Game Class Pattern (src/Game.ts):
 ```typescript
-import {{ sdk }} from '@smoud/playable-sdk';
 import * as PIXI from 'pixi.js';
 import playerImg from 'assets/player.png';
 import bgMusic from 'assets/background.mp3';
@@ -356,19 +388,24 @@ export class Game {{
   
   constructor(width: number, height: number) {{
     this.app = new PIXI.Application();
+    // PixiJS v8 uses app.init() which returns a Promise
     this.app.init({{ width, height }}).then(() => {{
       this.create();
     }});
   }}
   
   public getCanvas(): HTMLCanvasElement {{
+    // PixiJS v8: Use app.canvas (NOT app.view)
     return this.app.canvas;
   }}
   
-  private create(): void {{
+  private async create(): Promise<void> {{
+    // Load configuration
+    const config = await fetch('./config.json').then(r => r.json());
+    
     // Create game objects
-    const sprite = PIXI.Sprite.from(playerImg);
-    this.app.stage.addChild(sprite);
+    this.player = PIXI.Sprite.from(playerImg);
+    this.app.stage.addChild(this.player);
     
     // Setup audio
     this.audio = new Audio(bgMusic);
@@ -378,8 +415,8 @@ export class Game {{
     // Start paused (playable ads requirement)
     this.pause();
     
-    // Mark ready
-    sdk.start();
+    // IMPORTANT: This signals resources are loaded and game is ready
+    // Call this from index.ts after game is created
   }}
   
   public resize(width: number, height: number): void {{
@@ -399,15 +436,48 @@ export class Game {{
     this.audio.play();
   }}
   
-  public volume(value: number): void {{
+  public setVolume(value: number): void {{
     this.audio.volume = value;
   }}
   
-  public finish(): void {{
+  public loadTestCase(data: any): void {{
+    // Load game state from test data
+    if (data.score !== undefined) this.score = data.score;
+    // ... load other state properties
+    
+    // MUST pause/freeze the game after loading
     this.pause();
-    sdk.finish();
   }}
 }}
+```
+
+TypeScript Entry Point Pattern (src/index.ts):
+```typescript
+import {{ sdk }} from '@smoud/playable-sdk';
+import {{ Game }} from './Game';
+
+let game: Game;
+
+// Initialize SDK and create game
+sdk.init((width, height) => {{
+  // Create game with container dimensions
+  game = new Game(width, height);
+  
+  // Add canvas to DOM
+  document.body.appendChild(game.getCanvas());
+  
+  // Setup SDK event handlers
+  sdk.on('resize', (w, h) => game.resize(w, h));
+  sdk.on('pause', () => game.pause());
+  sdk.on('resume', () => game.resume());
+  sdk.on('volume', (level) => game.setVolume(level));
+  
+  // Expose test case loader for validation
+  (window as any).loadTestCase = (data: any) => game.loadTestCase(data);
+  
+  // Signal that resources are loaded and game is ready
+  sdk.start();
+}});
 ```
 
 Asset Import Syntax:
@@ -424,6 +494,30 @@ import jumpSound from 'assets/jump.mp3';
 const sprite = PIXI.Sprite.from(playerImg);
 const audio = new Audio(bgMusic);
 ```
+
+HTML Template (src/index.html):
+The HTML file is a simple template - the build system handles script injection:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Title</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <!-- Canvas will be added by JavaScript -->
+  <!-- Build system automatically injects bundled script -->
+</body>
+</html>
+```
+
+DO NOT manually add script tags for:
+- @smoud/playable-sdk
+- pixi.js
+- Your compiled TypeScript
+The build system handles all of this automatically!
 
 {TOOL_USAGE_RULES}
 
@@ -462,7 +556,7 @@ Remember that you can add background music and sound effects to enhance the game
 Project Structure (TypeScript):
 src/
   index.ts       - SDK initialization and event binding
-  Game.ts        - Main game class with PixiJS logic
+  Game.ts        - Main game class with PixiJS v8 logic
   index.html     - HTML template
   index.css      - Styles
 assets/          - Game assets (PNG, MP3, etc.)
@@ -470,11 +564,43 @@ config.json      - Gameplay parameters (root level)
 MANIFEST.json    - Game state structure (root level)
 test_case_*.json - Test cases (root level)
 
+BUILD SYSTEM (@smoud/playable-scripts):
+The project uses @smoud/playable-scripts for building:
+- You ONLY modify TypeScript code in src/ - the build system handles everything else
+- The build automatically bundles all code into a single HTML file
+- The build adds necessary metadata for ad networks automatically
+- Asset imports are resolved by the build system
+- config.json and test_case_*.json are made available at runtime
+- NO need to manually manage script tags or bundling
+
+SDK Integration (@smoud/playable-sdk):
+Key SDK methods and events:
+- sdk.init(callback) - Receives container dimensions (width, height)
+- sdk.start() - Call when resources are loaded to begin playable
+- sdk.on('resize', handler) - Handle container size changes (width, height)
+- sdk.on('pause', handler) - Pause gameplay
+- sdk.on('resume', handler) - Resume gameplay
+- sdk.on('volume', handler) - Adjust audio volume (0-1)
+- sdk.on('interaction', handler) - Track user interactions
+- sdk.on('retry', handler) - Handle retry/restart
+- sdk.install() - Trigger app store redirect
+- sdk.finish() - Mark playable as complete
+
+SDK Properties (read-only):
+- sdk.maxWidth, sdk.maxHeight - Container dimensions
+- sdk.isLandscape - Orientation state
+- sdk.isPaused, sdk.isStarted, sdk.isFinished - State flags
+- sdk.volume - Current volume level (0-1)
+
 Asset Imports:
 ```typescript
 import playerImg from 'assets/player.png';
 import bgMusic from 'assets/background.mp3';
 ```
+
+PixiJS v8 API:
+- Use app.canvas (NOT app.view) to access the canvas element
+- Use app.init({{width, height}}) which returns a Promise
 
 {TOOL_USAGE_RULES}
 
@@ -494,7 +620,7 @@ Rules for changing files:
 
 
 # ============================================================================
-# PixiJS CDN Instructions
+# Asset and Sound Pack Instructions
 # ============================================================================
 
 ASSET_PACK_INSTRUCTIONS = """
@@ -526,137 +652,73 @@ Each sound/music file includes:
 - **type**: The type of sound (background_music, sfx, etc.)
 - **duration**: Duration if known
 
-## How to Use Sounds in Your Game
+## How to Use Sounds in Your Game (TypeScript)
 
 Sounds are located in the Sounds folder with the same pack structure as assets.
 
 ### Loading and Playing Background Music:
 
-```javascript
-// Load and play background music
-const backgroundMusic = new Audio('sounds/background.mp3');
-backgroundMusic.loop = true;
-backgroundMusic.volume = 0.5; // Adjust volume (0.0 to 1.0)
+```typescript
+import bgMusic from 'assets/background.mp3';
 
-// Start music after first user interaction (required by browsers)
-let musicStarted = false;
-app.view.addEventListener('pointerdown', () => {{
-    if (!musicStarted) {{
-        backgroundMusic.play();
-        musicStarted = true;
-    }}
-}}, {{ once: true }});
+export class Game {{
+  private bgMusic: HTMLAudioElement;
+  
+  private create(): void {{
+    // Setup audio
+    this.bgMusic = new Audio(bgMusic);
+    this.bgMusic.loop = true;
+    this.bgMusic.volume = 0.5; // Adjust volume (0.0 to 1.0)
+  }}
+  
+  public resume(): void {{
+    this.isPaused = false;
+    this.app.ticker.start();
+    // Play music when game resumes (after first user interaction)
+    this.bgMusic.play();
+  }}
+  
+  public pause(): void {{
+    this.isPaused = true;
+    this.app.ticker.stop();
+    this.bgMusic.pause();
+  }}
+  
+  public setVolume(level: number): void {{
+    this.bgMusic.volume = level;
+  }}
+}}
 ```
 
 ### Important Rules for Audio:
 - Browser autoplay policies require user interaction before playing audio
-- Always start audio after the first click/touch
-- Include a mute toggle option for better user experience
+- Audio should play when game resumes (handled by SDK resume event)
+- Use SDK volume event to control audio volume
 - Use `loop = true` for background music
 - Keep volume reasonable (0.3 - 0.7 range recommended)
 
-### Complete Example with Mute Toggle:
+### Sound Effects Example:
 
-```javascript
-// Audio setup
-const backgroundMusic = new Audio('sounds/background.mp3');
-backgroundMusic.loop = true;
-backgroundMusic.volume = 0.5;
+```typescript
+import jumpSound from 'assets/jump.mp3';
 
-let isMuted = false;
-let musicStarted = false;
-
-// Start music on first interaction
-app.view.addEventListener('pointerdown', () => {{
-    if (!musicStarted) {{
-        if (!isMuted) {{
-            backgroundMusic.play();
-        }}
-        musicStarted = true;
-    }}
-}}, {{ once: true }});
-
-// Mute toggle function
-function toggleMute() {{
-    isMuted = !isMuted;
-    if (isMuted) {{
-        backgroundMusic.pause();
-    }} else if (musicStarted) {{
-        backgroundMusic.play();
-    }}
+export class Game {{
+  private jumpSfx: HTMLAudioElement;
+  
+  private create(): void {{
+    this.jumpSfx = new Audio(jumpSound);
+    this.jumpSfx.volume = 0.6;
+  }}
+  
+  private onJump(): void {{
+    // Play sound effect (clone to allow overlapping sounds)
+    this.jumpSfx.cloneNode(true).play();
+  }}
 }}
 ```
 
 Remember to use sounds to enhance the game experience and make it more engaging!
 """
-
-PIXI_CDN_INSTRUCTIONS = """
-IMPORTANT - PixiJS CDN Links (Version 8.13.2):
-Use these official CDN links when generating HTML files:
-
-Core PixiJS (REQUIRED):
-  https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/pixi.min.js
-
-Optional Packages (include if needed):
-  - Web Worker Support: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/webworker.min.js
-  - Advanced Blend Modes: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/advanced-blend-modes.min.js
-  - GIF Support: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/gif.min.js
-  - Math Extras: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/math-extras.min.js
-  - Unsafe Eval: https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/packages/unsafe-eval.min.js
-
-IMPORTANT - PixiJS API Correction:
-In PixiJS 8.x, use app.view (NOT app.canvas):
-  - CORRECT: document.body.appendChild(app.view);
-  - CORRECT: app.view.addEventListener('pointerdown', ...);
-  - WRONG: document.body.appendChild(app.canvas); // Will cause "Cannot read properties of undefined" error
-  - WRONG: app.canvas.addEventListener(...); // app.canvas does not exist!
-The canvas element is accessed via app.view, not app.canvas.
-
-IMPORTANT - File Naming Convention:
-Your main HTML file MUST be named 'index.html'. This is the required entry point for the game.
-Do not use custom names like 'game.html', 'tic-tac-toe.html', etc. Always use 'index.html'.
-
-IMPORTANT - Project Structure:
-Create separate files for better code organization:
-- index.html (main HTML file)
-- game.js or main.js (JavaScript game logic)
-- style.css (CSS styling)
-
-Example project structure:
-
-index.html:
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PixiJS Game</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.13.2/pixi.min.js"></script>
-</head>
-<body>
-    <script src="game.js"></script>
-</body>
-</html>
-
-style.css:
-body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-}
-
-game.js:
-// Your PixiJS game code here
-const app = new PIXI.Application({
-    width: 800,
-    height: 600,
-    backgroundColor: 0x1099bb
-});
-// IMPORTANT: Use app.view (NOT app.canvas!)
-document.body.appendChild(app.view);
-"""
-
 
 # ============================================================================
 # Feedback Messages
@@ -695,8 +757,6 @@ Controls latency: debounce 80 ms, drag threshold 12 px.
 Safe areas: text/CTA ≥ 64 px from edges; min hit target 44 px.
 
 Determinism for QA: set RNG seed (e.g., 1337).
-
-{asset_pack_info}
 
 Output format (use exactly these headings and bullets):
 
@@ -760,7 +820,7 @@ Behavior: single mraid.open(clickUrl); visual feedback; CTA always visible withi
 
 10) Audio
 
-{sound_instructions}
+Background music (file id if any); volume control.
 
 SFX list (event → file id); load policy (lazy after first input).
 
@@ -768,7 +828,7 @@ Mute toggle behavior; persistence across states.
 
 11) Assets & Naming
 
-{asset_instructions}
+List all visual elements needed and their specifications (either asset filenames or PixiJS Graphics primitives).
 
 Atlases (PNG/WebP + JSON), max dims, padding (2–4 px), PoT preferred.
 
@@ -806,9 +866,6 @@ States: Preload (assets ready) → Tutorial (step1 done) → Play (meter≥100% 
 Persist: meter %, lane index, mute, RNG seed=1337.
 
 (…and so on for sections 4,5,6,7,8,9,10,11,13 with concrete numbers.)
-
-Here is user's short concept:
-{user_prompt}
 """
 
 # Asset pack info templates for game designer prompt

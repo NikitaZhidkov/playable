@@ -18,9 +18,7 @@ from src.prompts import (
     FEEDBACK_CONTINUE_TASK,
     FEEDBACK_VALIDATION_FAILED,
     SYSTEM_PIXI_GAME_DEVELOPER_PROMPT,
-    SYSTEM_PIXI_FEEDBACK_PROMPT,
-    PIXI_CDN_INSTRUCTIONS,
-    ASSET_PACK_INSTRUCTIONS
+    SYSTEM_PIXI_FEEDBACK_PROMPT
 )
 import logging
 import logfire
@@ -45,27 +43,15 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
         
         if is_feedback:
             logger.info("Using FEEDBACK mode system prompt")
-            system_prompt = SYSTEM_PIXI_FEEDBACK_PROMPT + "\n\n" + PIXI_CDN_INSTRUCTIONS
+            system_prompt = SYSTEM_PIXI_FEEDBACK_PROMPT
             mode = "feedback"
         else:
             logger.info("Using CREATION mode system prompt")
-            system_prompt = SYSTEM_PIXI_GAME_DEVELOPER_PROMPT + "\n\n" + PIXI_CDN_INSTRUCTIONS
+            system_prompt = SYSTEM_PIXI_GAME_DEVELOPER_PROMPT
             mode = "creation"
         
-        # Add asset pack context if available
-        asset_context = state.get("asset_context")
-        if asset_context:
-            logger.info("Adding asset pack context to system prompt")
-            asset_instructions = ASSET_PACK_INSTRUCTIONS.format(asset_context=asset_context)
-            system_prompt = system_prompt + "\n\n" + asset_instructions
-        
-        # Add sound pack context if available
-        sound_context = state.get("sound_context")
-        if sound_context:
-            logger.info("Adding sound pack context to system prompt")
-            from src.prompts import SOUND_PACK_INSTRUCTIONS
-            sound_instructions = SOUND_PACK_INSTRUCTIONS.format(sound_context=sound_context)
-            system_prompt = system_prompt + "\n\n" + sound_instructions
+        # Note: Asset and sound pack context are now added to user messages, not system prompt
+        # This keeps system prompt focused on instructions, user prompt focused on task data
         
         # Get tools from file operations
         tools = file_ops.tools
@@ -82,7 +68,7 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             mode=mode,
             retry_count=retry_count,
             task_description=task_description[:100] if task_description else "",
-            has_asset_context=bool(asset_context),
+            has_asset_context=bool(state.get("asset_context")),
             message_count=len(state["messages"])
         ):
             # Call LLM with appropriate system prompt
@@ -208,6 +194,8 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
         """Build TypeScript project as validation step with type checking."""
         logger.info("=== Build Node - TypeScript Type Checking & Compilation ===")
         
+        from src.validators.build_validator import validate_build
+        
         workspace = state["workspace"]
         retry_count = state.get("retry_count", 0)
         span_name = "Build & type check TypeScript" + (f" - retry {retry_count}" if retry_count > 0 else "")
@@ -217,150 +205,31 @@ def create_agent_graph(llm_client: LLMClient, file_ops: FileOperations):
             langgraph_node="build",
             retry_count=retry_count
         ):
-            # Step 1: Run TypeScript type checker
-            logger.info("Step 1: Running TypeScript type check: npx tsc --noEmit")
-            type_check_result = await workspace.exec(["npx", "tsc", "--noEmit"])
-            
-            if type_check_result.exit_code != 0:
-                # Type check failed - provide feedback to agent
-                error_msg = f"""❌ TypeScript Type Check Failed
-
-Type Errors:
-{type_check_result.stdout}
-
-The TypeScript type checker found errors in your code. Please fix these type errors.
-Common issues:
-- Type errors (wrong types, missing properties)
-- Missing type definitions
-- Incorrect type annotations
-- Type mismatches in assignments or function calls
-
-Please review the errors above and fix the TypeScript code."""
-                
-                logger.warning(f"Type check failed with exit code {type_check_result.exit_code}")
-                logger.warning(f"Type check output: {type_check_result.stdout[:500]}")
-                
-                # Increment retry count
-                retry_count = state.get("retry_count", 0) + 1
-                
-                return {
-                    "messages": [HumanMessage(content=error_msg)],
-                    "retry_count": retry_count,
-                    "is_completed": False,  # Reset completion flag
-                    "test_failures": [f"TypeScript type check failed: {type_check_result.stdout[:200]}"]
-                }
-            
-            logger.info("✅ Type check passed")
-            
-            # Step 2: Run build
-            logger.info("Step 2: Running build: npm run build")
-            build_result = await workspace.exec(["npm", "run", "build"])
-            
-            if build_result.exit_code != 0:
-                # Build failed - provide feedback to agent
-                error_msg = f"""❌ Build Failed
-
-Build Errors:
-{build_result.stderr}
-
-The build process failed. Please fix these errors.
-Common issues:
-- Import errors (wrong paths, missing files)
-- Syntax errors
-- Asset loading errors
-
-Please review the errors above and fix the code."""
-                
-                logger.warning(f"Build failed with exit code {build_result.exit_code}")
-                logger.warning(f"Build stderr: {build_result.stderr}")
-                
-                # Increment retry count
-                retry_count = state.get("retry_count", 0) + 1
-                
-                return {
-                    "messages": [HumanMessage(content=error_msg)],
-                    "retry_count": retry_count,
-                    "is_completed": False,  # Reset completion flag
-                    "test_failures": [f"Build failed: {build_result.stderr[:200]}"]
-                }
-            
-            # Both type check and build succeeded
-            logger.info("✅ Build successful")
-            logger.info(f"Build output: {build_result.stdout}")
-            
-            # Copy config.json, MANIFEST.json, and test case files into dist/ for testing
-            # This ensures the test container has access to these files
-            logger.info("Copying config and test case files into dist/ for testing...")
-            
-            # Get list of files in workspace root
-            workspace_files = await workspace.ls(".")
-            
-            # Copy critical files (must exist)
-            critical_files = ["config.json", "MANIFEST.json"]
-            for file_name in critical_files:
-                content = await workspace.read_file(file_name)
-                workspace = workspace.write_file(f"dist/{file_name}", content)
-                logger.info(f"Copied {file_name} to dist/")
-            
-            # Copy test case files (1-5 test cases, flexible - copy only if they exist)
-            test_cases_copied = 0
-            for i in range(1, 6):
-                test_file = f"test_case_{i}.json"
-                if test_file in workspace_files:
-                    content = await workspace.read_file(test_file)
-                    workspace = workspace.write_file(f"dist/{test_file}", content)
-                    logger.info(f"Copied {test_file} to dist/")
-                    test_cases_copied += 1
-                else:
-                    logger.debug(f"Skipping {test_file}: not found in workspace")
-            
-            if test_cases_copied == 0:
-                error_msg = "❌ No test cases found\n\nYou must create at least 1 test case (test_case_1.json through test_case_5.json).\nTest cases are required to validate the game works correctly."
-                logger.error(error_msg)
-                return {
-                    "messages": [HumanMessage(content=error_msg)],
-                    "retry_count": state.get("retry_count", 0) + 1,
-                    "is_completed": False,
-                    "test_failures": ["No test cases found"]
-                }
-            
-            logger.info(f"Copied {test_cases_copied} test case(s) to dist/")
-            
-            # Copy the built HTML to index.html for testing
-            # playable-scripts creates a file like "Playable_Template_v1_..._Preview.html"
-            # We need it accessible as index.html for testing
-            logger.info("Creating index.html for testing...")
-            dist_files = await workspace.ls("dist")
-            html_files = [f for f in dist_files if f.endswith('.html')]
-            
-            # Build should produce exactly one HTML file
-            if len(html_files) != 1:
-                error_msg = f"❌ Expected 1 HTML file in dist/, found {len(html_files)}: {html_files}\n\nThe build should produce exactly one bundled HTML file.\nCheck dist/ directory contents."
-                logger.error(error_msg)
-                return {
-                    "messages": [HumanMessage(content=error_msg)],
-                    "retry_count": state.get("retry_count", 0) + 1,
-                    "is_completed": False,
-                    "test_failures": [f"Build produced {len(html_files)} HTML files, expected 1"]
-                }
-            
-            built_html = html_files[0]
-            logger.info(f"Found built HTML: {built_html}")
-            html_content = await workspace.read_file(f"dist/{built_html}")
-            workspace = workspace.write_file("dist/index.html", html_content)
-            logger.info("Created dist/index.html for testing")
-            
-            # Update the workspace in state with copied files
+            # Call build validator
+            result = await validate_build(workspace, retry_count)
+        
+        # Convert ValidationResult to dict for graph state
+        if not result.passed:
             return {
-                "messages": [],  # No message needed, proceed to tests
-                "retry_count": 0,  # Reset retry count on successful build
-                "test_failures": [],  # Clear any previous test failures
-                "workspace": workspace  # Update workspace with copied files
+                "messages": [HumanMessage(content=result.error_message)],
+                "retry_count": result.retry_count,
+                "is_completed": False,  # Reset completion flag
+                "test_failures": result.failures
             }
+        
+        # Build succeeded
+        return {
+            "messages": [],  # No message needed, proceed to tests
+            "retry_count": 0,  # Reset retry count on successful build
+            "test_failures": [],  # Clear any previous test failures
+            "workspace": result.workspace  # Update workspace with copied files
+        }
     
     async def test_node(state: AgentState) -> dict:
         """Test the generated game in a browser and validate with VLM."""
         logger.info("=== Test Node ===")
+        
+        from src.validators.playable_validator import validate_playable
         
         # Wrap entire test node with Logfire span
         is_feedback_mode = state.get("is_feedback_mode", False)
@@ -380,79 +249,41 @@ Please review the errors above and fix the code."""
             from datetime import datetime
             test_run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
             logger.info(f"Test run ID: {test_run_id}")
-
-            # Prepare Playwright container with game files
-            logger.info("Preparing Playwright container with built game from dist/...")
-            playwright_container = state["playwright_container"]
-            playwright_container.reset()  # Reset to clean state
-            # Use built game from dist/ directory (after TypeScript compilation)
-            playwright_container.copy_directory(
-                state["workspace"].container().directory("dist")
-            ).with_test_script(TEST_SCRIPT)
             
-            # Run browser tests to get screenshot and console logs
-            logger.info("Running browser tests on generated game...")
-            test_result = await validate_game_in_workspace(playwright_container)
-            
-            # Validate with VLM
-            logger.info("Validating playable with VLM...")
-            is_feedback_mode = state.get("is_feedback_mode", False)
-            
+            # Validate main playable with VLM
             with logfire.span(
                 "VLM: Validate playable",
                 validation_type="main_playable",
                 is_feedback_mode=is_feedback_mode,
                 test_run_id=test_run_id
             ):
-                is_valid, reason = validate_playable_with_vlm(
+                result = await validate_playable(
+                    workspace=state["workspace"],
+                    playwright_container=state["playwright_container"],
                     vlm_client=vlm_client,
-                    screenshot_bytes=test_result.screenshot_bytes,
-                    console_logs=test_result.console_logs,
-                    user_prompt=state.get("task_description", ""),
-                    template_str=VLM_PLAYABLE_VALIDATION_PROMPT,
+                    task_description=state.get("task_description", ""),
                     session_id=state.get("session_id"),
+                    test_run_id=test_run_id,
                     is_feedback_mode=is_feedback_mode,
                     original_prompt=state.get("original_prompt", "") if is_feedback_mode else None,
-                    test_run_id=test_run_id
+                    retry_count=retry_count
                 )
             
-            if not is_valid:
-                logger.warning(f"❌ VLM validation failed: {reason}")
-                # Increment retry count
-                current_retry = state.get("retry_count", 0) + 1
-                logger.info(f"Retry attempt {current_retry}/5")
-                
-                # Format console logs for feedback
-                if test_result.console_logs:
-                    console_logs_formatted = "  " + "\n  ".join(test_result.console_logs)
-                else:
-                    console_logs_formatted = "  No console logs captured."
-                
-                # Create feedback message for LLM with VLM reason and console logs
-                feedback_message = HumanMessage(
-                    content=FEEDBACK_VALIDATION_FAILED.format(
-                        reason=reason,
-                        console_logs=console_logs_formatted
-                    )
-                )
-                
+            if not result.passed:
+                logger.info(f"Retry attempt {result.retry_count}/5")
                 return {
-                    "messages": [feedback_message],
-                    "test_failures": [reason],
-                    "retry_count": current_retry,
+                    "messages": [HumanMessage(content=result.error_message)],
+                    "test_failures": result.failures,
+                    "retry_count": result.retry_count,
                     "is_completed": False,  # Reset completion flag to retry
                 }
             
             # Main VLM validation passed!
-            logger.info("✅ VLM validation passed! Game is correct.")
-            
             # Check if we previously failed main validation - if so, reset retry count
             previous_failures = state.get("test_failures", [])
             previous_retry_count = state.get("retry_count", 0)
             
             # Reset retry count to 0 since we passed main validation
-            # This applies whether we're starting test case validation for the first time
-            # or if we previously failed main validation and now passed
             if previous_retry_count > 0 and previous_failures:
                 logger.info(f"Main VLM validation passed after {previous_retry_count} previous failures - resetting retry count")
             else:
@@ -460,203 +291,26 @@ Please review the errors above and fix the code."""
             
             test_case_retry_count = 0
             
-            # Now run test case validation
-            logger.info("=== Running Test Case Validation ===")
+            # Run test case validation
+            from src.validators.test_case_validator import validate_test_cases
             
-            # Discover test case files (at root level)
-            try:
-                test_case_files = await state["workspace"].list_files("test_case_*.json")
-                # Sort test cases to ensure they run in order (1 -> 5)
-                test_case_files = sorted(test_case_files)
-                logger.info(f"Found {len(test_case_files)} test case files (sorted): {test_case_files}")
-            except Exception as e:
-                logger.error(f"Error discovering test case files: {e}")
-                test_case_files = []
+            test_case_result = await validate_test_cases(
+                workspace=state["workspace"],
+                playwright_container=state["playwright_container"],
+                vlm_client=vlm_client,
+                session_id=state.get("session_id"),
+                test_run_id=test_run_id,
+                retry_count=test_case_retry_count
+            )
             
-            # Validate test case count (require 1-5)
-            if len(test_case_files) == 0:
-                logger.error("❌ No test cases found! At least 1 test case is required.")
-                test_case_retry_count += 1
-                feedback_message = HumanMessage(
-                    content="Test case validation failed: No test cases found. You must create 1-5 test cases at the ROOT level (test_case_1.json through test_case_5.json, same directory as index.html)."
-                )
+            if not test_case_result.passed:
                 return {
-                    "messages": [feedback_message],
-                    "test_failures": ["Missing test cases (required: 1-5)"],
-                    "retry_count": test_case_retry_count,
+                    "messages": [HumanMessage(content=test_case_result.error_message)],
+                    "test_failures": test_case_result.failures,
+                    "retry_count": test_case_result.retry_count,
                     "is_completed": False,
                 }
             
-            if len(test_case_files) > 5:
-                logger.warning(f"Found {len(test_case_files)} test cases, but maximum is 5. Using first 5.")
-                test_case_files = test_case_files[:5]
-            
-            # Run each test case in order (1 -> 5)
-            # Stop on first failure to save time
-            for test_case_file in test_case_files:
-                test_case_name = test_case_file.split('/')[-1].replace('.json', '')
-                logger.info(f"Running test case: {test_case_name}")
-                
-                try:
-                    # Read test case JSON from workspace
-                    test_case_json = await state["workspace"].read_file(test_case_file)
-                    import json
-                    test_case_data = json.loads(test_case_json)
-                    
-                    # Extract expected output
-                    expected_output = test_case_data.get("expectedOutput", "")
-                    if not expected_output:
-                        logger.warning(f"Test case {test_case_name} missing 'expectedOutput' field")
-                        failure_msg = f"{test_case_name}: Missing 'expectedOutput' field in test case JSON"
-                        
-                        # Save test case error for debugging
-                        save_test_case_error(
-                            test_case_name=test_case_name,
-                            expected_output="(missing)",
-                            actual_output="N/A - test case validation error",
-                            error_message=failure_msg,
-                            session_id=state.get("session_id"),
-                            test_run_id=test_run_id
-                        )
-                        
-                        # Increment retry count and return immediately
-                        test_case_retry_count += 1
-                        feedback_message = HumanMessage(
-                            content=f"Test case validation failed: {failure_msg}\n\nPlease fix the test case and try again."
-                        )
-                        
-                        return {
-                            "messages": [feedback_message],
-                            "test_failures": [failure_msg],
-                            "retry_count": test_case_retry_count,
-                            "is_completed": False,
-                        }
-                    
-                    # Prepare fresh Playwright container for this test case
-                    test_case_container = state["playwright_container"]
-                    test_case_container.reset()
-                    test_case_container.copy_directory(
-                        state["workspace"].container().directory(".")
-                    )
-                    
-                    # Run test with test case loaded
-                    test_case_result = await validate_game_with_test_case(
-                        container=test_case_container,
-                        test_case_json=test_case_json,
-                        test_case_name=test_case_name
-                    )
-                    
-                    # Check for errors in loading test case
-                    if test_case_result.errors:
-                        logger.warning(f"Test case {test_case_name} had errors: {test_case_result.errors}")
-                        failure_msg = f"{test_case_name}: {', '.join(test_case_result.errors)}"
-                        
-                        # Save test case error for debugging
-                        save_test_case_error(
-                            test_case_name=test_case_name,
-                            expected_output=expected_output,
-                            actual_output="N/A - test case loading error",
-                            error_message=failure_msg + "\n\nErrors:\n" + "\n".join(test_case_result.errors),
-                            session_id=state.get("session_id"),
-                            test_run_id=test_run_id
-                        )
-                        
-                        # Increment retry count and return immediately
-                        test_case_retry_count += 1
-                        feedback_message = HumanMessage(
-                            content=f"Test case validation failed: {failure_msg}\n\nPlease fix the issues and try again."
-                        )
-                        
-                        return {
-                            "messages": [feedback_message],
-                            "test_failures": [failure_msg],
-                            "retry_count": test_case_retry_count,
-                            "is_completed": False,
-                        }
-                    
-                    # Validate with VLM
-                    with logfire.span(
-                        f"VLM: Validate test case '{test_case_name}'",
-                        validation_type="test_case",
-                        test_case_name=test_case_name,
-                        expected_output=expected_output[:100] if expected_output else "",
-                        test_run_id=test_run_id
-                    ):
-                        is_test_case_valid, test_case_reason = validate_test_case_with_vlm(
-                            vlm_client=vlm_client,
-                            screenshot_bytes=test_case_result.screenshot_bytes,
-                            expected_output=expected_output,
-                            template_str=VLM_TEST_CASE_VALIDATION_PROMPT,
-                            test_case_name=test_case_name,
-                            session_id=state.get("session_id"),
-                            test_case_json=test_case_json,
-                            test_run_id=test_run_id
-                        )
-                    
-                    if is_test_case_valid:
-                        logger.info(f"✅ Test case {test_case_name} passed")
-                        # Test case passed - if we had previous failures on this test case, reset retry count
-                        # Check if this test case failed before by looking at previous test_failures
-                        previous_failures = state.get("test_failures", [])
-                        if any(test_case_name in str(failure) for failure in previous_failures):
-                            logger.info(f"Test case {test_case_name} passed after previous failure - resetting retry count")
-                            test_case_retry_count = 0
-                    else:
-                        logger.warning(f"❌ Test case {test_case_name} failed: {test_case_reason}")
-                        failure_msg = f"{test_case_name} failed: Expected '{expected_output}' but VLM observed '{test_case_reason}'"
-                        
-                        # Save test case error for debugging
-                        save_test_case_error(
-                            test_case_name=test_case_name,
-                            expected_output=expected_output,
-                            actual_output=test_case_reason,
-                            error_message=failure_msg,
-                            session_id=state.get("session_id"),
-                            test_run_id=test_run_id
-                        )
-                        
-                        # Increment retry count and return immediately (stop executing other test cases)
-                        test_case_retry_count += 1
-                        logger.info(f"Test case retry attempt {test_case_retry_count}/5")
-                        
-                        feedback_message = HumanMessage(
-                            content=f"Test case validation failed: {failure_msg}\n\nPlease fix the issues and update the test case if needed."
-                        )
-                        
-                        return {
-                            "messages": [feedback_message],
-                            "test_failures": [failure_msg],
-                            "retry_count": test_case_retry_count,
-                            "is_completed": False,
-                        }
-                        
-                except Exception as e:
-                    logger.error(f"Error running test case {test_case_name}: {e}", exc_info=True)
-                    failure_msg = f"{test_case_name}: Error running test case: {str(e)}"
-                    
-                    # Save test case error for debugging
-                    save_test_case_error(
-                        test_case_name=test_case_name,
-                        expected_output=expected_output if 'expected_output' in locals() else "(unknown)",
-                        actual_output="N/A - exception occurred",
-                        error_message=failure_msg + f"\n\nException:\n{str(e)}",
-                        session_id=state.get("session_id"),
-                        test_run_id=test_run_id
-                    )
-                    
-                    # Increment retry count and return immediately
-                    test_case_retry_count += 1
-                    feedback_message = HumanMessage(
-                        content=f"Test case validation failed: {failure_msg}\n\nPlease fix the error and try again."
-                    )
-                    
-                    return {
-                        "messages": [feedback_message],
-                        "test_failures": [failure_msg],
-                        "retry_count": test_case_retry_count,
-                        "is_completed": False,
-                    }
-        
             # All tests passed!
             logger.info("✅ All test cases passed! Game is fully validated.")
             
@@ -664,6 +318,9 @@ Please review the errors above and fix the code."""
             # Note: Keep MANIFEST.json at root for feedback context, only move test_case_*.json
             logger.info("Moving test cases to debug subfolder...")
             try:
+                # Discover test case files to move
+                test_case_files = await state["workspace"].list_files("test_case_*.json")
+                
                 # Create debug_tests directory
                 state["workspace"] = state["workspace"].write_file("debug_tests/.gitkeep", "", force=True)
                 

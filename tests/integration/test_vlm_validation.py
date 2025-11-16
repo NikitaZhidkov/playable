@@ -138,6 +138,86 @@ async def test_bytes_type_handling():
     print("\n✅ Bytes/string conversion works correctly")
 
 
+@pytest.mark.asyncio
+async def test_validate_playable_function_integration(dagger_client, playwright_container):
+    """
+    Integration test for validate_playable() function.
+    This is a smoke test to ensure the validator works end-to-end.
+    """
+    from src.validators.playable_validator import validate_playable
+    from src.vlm import VLMClient
+    from src.containers import Workspace
+    
+    # Create a simple HTML game
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Test Game</title>
+        <style>
+            body {
+                margin: 0;
+                background: #2c3e50;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            #game {
+                color: white;
+                font-size: 48px;
+                font-family: Arial;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="game">Racing Game</div>
+        <script>
+            console.log('Game initialized successfully');
+            console.log('All assets loaded');
+        </script>
+    </body>
+    </html>
+    """
+    
+    # Create workspace with game
+    workspace = await Workspace.create(dagger_client)
+    workspace = workspace.write_file("dist/index.html", html_content)
+    
+    # Initialize VLM client (skip if API key not available)
+    try:
+        vlm_client = VLMClient()
+    except ValueError:
+        pytest.skip("Skipping: GEMINI_API_KEY not set")
+    
+    # Run validate_playable
+    result = await validate_playable(
+        workspace=workspace,
+        playwright_container=playwright_container,
+        vlm_client=vlm_client,
+        task_description="Create a simple racing game with text",
+        session_id="test_integration",
+        test_run_id="test_run_integration",
+        is_feedback_mode=False,
+        retry_count=0
+    )
+    
+    # Assertions - we mainly care that it doesn't crash
+    assert isinstance(result.passed, bool)
+    if result.passed:
+        assert result.error_message is None
+        assert result.failures == []
+    else:
+        assert result.error_message is not None
+        assert isinstance(result.failures, list)
+    
+    print(f"\n✅ validate_playable() integration test completed")
+    print(f"   Result: passed={result.passed}")
+    if not result.passed:
+        print(f"   Reason: {result.error_message[:100]}")
+
+
 if __name__ == "__main__":
     # Run tests
     asyncio.run(test_vlm_validation_with_real_screenshot())

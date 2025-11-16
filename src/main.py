@@ -21,8 +21,9 @@ from src.tools import FileOperations
 from src.llm_client import LLMClient
 from src.agent_graph import create_agent_graph
 from src.prompts import (
-    PIXI_CDN_INSTRUCTIONS, 
     FEEDBACK_CONTEXT_TEMPLATE,
+    ASSET_PACK_INSTRUCTIONS,
+    SOUND_PACK_INSTRUCTIONS,
     GAME_DESIGNER_PROMPT,
     GAME_DESIGNER_ASSET_PACK_INFO,
     GAME_DESIGNER_NO_ASSETS,
@@ -409,13 +410,17 @@ async def call_game_designer(
         sound_pack_info = GAME_DESIGNER_NO_SOUNDS
         sound_instructions = GAME_DESIGNER_SOUND_INSTRUCTIONS_NO_PACK
     
-    # Format the prompt with asset and sound info
-    formatted_prompt = GAME_DESIGNER_PROMPT.format(
-        asset_pack_info=asset_pack_info,
-        asset_instructions=asset_instructions,
-        sound_instructions=sound_instructions,
-        user_prompt=user_prompt
-    )
+    # Build user message with game concept + asset/sound context
+    # (moved from system prompt to user prompt for better architecture)
+    user_message = f"""Here is the user's short game concept:
+
+{user_prompt}
+
+{asset_pack_info}
+
+{asset_instructions}
+
+{sound_instructions}"""
     
     # Call LLM (no tools needed for game designer)
     llm_client = LLMClient()
@@ -426,9 +431,9 @@ async def call_game_designer(
         has_asset_pack=bool(selected_pack)
     ):
         response = llm_client.call(
-            messages=[{"role": "user", "content": user_prompt}],
+            messages=[{"role": "user", "content": user_message}],
             tools=[],
-            system=formatted_prompt
+            system=GAME_DESIGNER_PROMPT
         )
         
         # Parse response - extract text only
@@ -553,6 +558,16 @@ Implement the following game design:
 
 Please create a complete, working pixi.js game based on this detailed game design document. Make sure to use the correct PixiJS CDN link specified above in your HTML file."""
 
+    # Add asset pack information to user prompt (not system prompt)
+    if asset_context:
+        asset_instructions = ASSET_PACK_INSTRUCTIONS.format(asset_context=asset_context)
+        initial_prompt += f"\n\n{asset_instructions}"
+    
+    # Add sound pack information to user prompt (not system prompt)
+    if sound_context:
+        sound_instructions = SOUND_PACK_INSTRUCTIONS.format(sound_context=sound_context)
+        initial_prompt += f"\n\n{sound_instructions}"
+
     initial_state = {
         "messages": [
             HumanMessage(content=initial_prompt)
@@ -566,8 +581,8 @@ Please create a complete, working pixi.js game based on this detailed game desig
         "session_id": session.session_id,
         "is_feedback_mode": False,
         "original_prompt": task_description,  # In creation mode, original = current task
-        "asset_context": asset_context,  # Asset pack context for prompt injection
-        "sound_context": sound_context  # Sound pack context for prompt injection
+        "asset_context": asset_context,  # Keep in state for tracking
+        "sound_context": sound_context  # Keep in state for tracking
     }
     
     logger.info("Starting agent execution...")
@@ -771,6 +786,15 @@ async def run_feedback_workflow(
 
 Please implement the requested changes. You have access to all the current game files in the workspace."""
             
+            # Add asset/sound pack info to feedback (in user prompt, not system prompt)
+            if asset_context:
+                asset_instructions = ASSET_PACK_INSTRUCTIONS.format(asset_context=asset_context)
+                feedback_prompt += f"\n\n{asset_instructions}"
+            
+            if sound_context:
+                sound_instructions = SOUND_PACK_INSTRUCTIONS.format(sound_context=sound_context)
+                feedback_prompt += f"\n\n{sound_instructions}"
+            
             messages = previous_messages + [HumanMessage(content=feedback_prompt)]
         else:
             # No message history available, start fresh
@@ -780,6 +804,16 @@ Please implement the requested changes. You have access to all the current game 
                 user_prompt=session.initial_prompt,
                 feedback=feedback
             )
+            
+            # Add asset/sound pack info to feedback (in user prompt, not system prompt)
+            if asset_context:
+                asset_instructions = ASSET_PACK_INSTRUCTIONS.format(asset_context=asset_context)
+                feedback_prompt += f"\n\n{asset_instructions}"
+            
+            if sound_context:
+                sound_instructions = SOUND_PACK_INSTRUCTIONS.format(sound_context=sound_context)
+                feedback_prompt += f"\n\n{sound_instructions}"
+            
             messages = [HumanMessage(content=feedback_prompt)]
     else:
         # User chose to start fresh - don't load message history
@@ -789,6 +823,16 @@ Please implement the requested changes. You have access to all the current game 
             user_prompt=session.initial_prompt,
             feedback=feedback
         )
+        
+        # Add asset/sound pack info to feedback (in user prompt, not system prompt)
+        if asset_context:
+            asset_instructions = ASSET_PACK_INSTRUCTIONS.format(asset_context=asset_context)
+            feedback_prompt += f"\n\n{asset_instructions}"
+        
+        if sound_context:
+            sound_instructions = SOUND_PACK_INSTRUCTIONS.format(sound_context=sound_context)
+            feedback_prompt += f"\n\n{sound_instructions}"
+        
         messages = [HumanMessage(content=feedback_prompt)]
 
     # Initialize state - potentially restore from previous saved state
